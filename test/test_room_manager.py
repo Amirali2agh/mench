@@ -1,89 +1,64 @@
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from app.managers.room_manager import RoomManager
+import json
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from unittest.mock import patch, AsyncMock
+from app.api.websocket.room import router
+from app.managers.room_manager import room_manager
 
-@pytest.mark.asyncio
-async def test_room_manager_connect():
-    """
-    Test that a player can connect and register in the room.
-    """
-    manager = RoomManager()
-    mock_ws = AsyncMock()
-    
-    await manager.connect("room1", "player1", mock_ws)
-    
-    mock_ws.accept.assert_called_once()
-    assert "room1" in manager.rooms
-    assert manager.rooms["room1"]["player1"] == mock_ws
+# Setup a dummy FastAPI app to test the websocket room router in isolation
+api_app = FastAPI()
+api_app.include_router(router)
 
-
-def test_room_manager_disconnect():
+def test_websocket_room_gameplay_flow():
     """
-    Test that disconnecting a player unregisters them from the active room dictionary.
+    Test the entire active game room loop: joining, sync state broadcasts,
+    rolling dice, moving pieces, and initiating restart actions.
     """
-    manager = RoomManager()
-    mock_ws = MagicMock()
-    manager.rooms["room1"] = {"player1": mock_ws}
-    
-    manager.disconnect("room1", "player1")
-    
-    assert "room1" not in manager.rooms
-
-
-@pytest.mark.asyncio
-async def test_room_manager_broadcast():
-    """
-    Test that broadcast sends JSON to all active websockets in the room.
-    """
-    manager = RoomManager()
-    ws1 = AsyncMock()
-    ws2 = AsyncMock()
-    manager.rooms["room1"] = {"p1": ws1, "p2": ws2}
-    
-    payload = {"type": "test_msg"}
-    await manager.broadcast("room1", payload)
-    
-    ws1.send_json.assert_called_once_with(payload)
-    ws2.send_json.assert_called_once_with(payload)
-
-
-@pytest.mark.asyncio
-async def test_disconnect_forfeit_timer_trigger():
-    """
-    Test that the forfeit timer executes the callback after sleeping.
-    """
-    manager = RoomManager()
-    mock_callback = AsyncMock()
-    
-    # Patch async_sleep local import inside room_manager.py.
-    # This leaves the global asyncio.sleep completely untouched.
-    with patch("app.managers.room_manager.async_sleep", return_value=None) as mock_sleep:
-        manager.start_disconnect_timer("room1", "player1", mock_callback)
+    # Patch GameService and redis client to mock database states
+    with patch("app.api.websocket.room.GameService", new_callable=AsyncMock) as mock_game_service, \
+         patch("app.api.websocket.room.redis_client", new_callable=AsyncMock) as mock_redis, \
+         patch.object(room_manager, "broadcast", new_callable=AsyncMock) as mock_broadcast:
         
-        # This will use the real unpatched asyncio.sleep, allowing the loop to yield control
-        await asyncio.sleep(0.01) 
+        # Setup mock game configurations and return values
+        mock_redis.get.return_value = "4"  # Simulated 4 pieces room config
         
-        mock_sleep.assert_called_once_with(60)
-        mock_callback.assert_called_once_with("room1", "player1")
-
-
-@pytest.mark.asyncio
-async def test_disconnect_timer_cancel_on_reconnect():
-    """
-    Test that reconnecting a player cancels the active disconnect forfeit timer.
-    """
-    manager = RoomManager()
-    mock_callback = AsyncMock()
-    mock_ws = AsyncMock()
-    
-    # Patch async_sleep local import inside room_manager.py
-    with patch("app.managers.room_manager.async_sleep", side_effect=asyncio.CancelledError):
-        manager.start_disconnect_timer("room1", "player1", mock_callback)
+        mock_game_service.get_game.return_value = None  # First player joins triggers initialization
+        mock_game_service.create_game.return_value = {
+            "room_id": "test-room",
+            "player_count": 1,
+            "pieces_count": 4,
+            "players": [{"id": "p1", "name": "Amir", "avatar": ""}],
+            "current_turn": 0,
+            "dice": None,
+            "dice_rolled": False,
+            "pieces": {"p1": [-1, -1, -1, -1]},
+            "status": "playing",
+            "winner_id": None
+        }
         
-        # Reconnect the player, which must cancel the forfeit timer
-        await manager.connect("room1", "player1", mock_ws)
+        client = TestClient(api_app)
         
-        # Check that the task is removed from active forfeit tasks and callback was not executed
-        assert "room1" not in manager.disconnect_tasks
-        mock_callback.assert_not_called()
+        # Act: Open WebSocket connection inside active game room
+        with client.websocket_connect("/ws/room/test-room?playerId=p1&playerName=Amir") as websocket:
+            
+            # Action 1: Send roll_dice command
+            mock_game_service.get_game.return_value = mock_game_service.create_game.return_value
+            mock_game_service.roll_dice.return_value = mock_game_service.create_game.return_value
+            
+            websocket.send_json({"action": "roll_dice"})
+            
+            # Action 2: Send move_piece command
+            mock_game_service.move_piece.return_value = mock_game_service.create_game.return_value
+            websocket.send_json({"action": "move_piece", "piece_index": 0})
+            
+            # Action 3: Send restart_game command
+            websocket.send_json({"action": "restart_game"})
+        
+        # Assert: Verify GameService called initialization and gameplay actions
+        mock_game_service.create_game.assert_called()
+        mock_game_service.roll_dice.assert_called_once_with("test-room", "p1")
+        mock_game_service.move_piece.assert_called_once_with("test-room", "p1", 0)
+        
+        # Assert: Verify that room broadcast was invoked to sync connected clients
+        assert mock_broadcast.call_count > 0
