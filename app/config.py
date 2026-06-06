@@ -1,0 +1,27 @@
+import os
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    # تنظیمات عمومی پروژه
+    PROJECT_NAME: str = "Mensch Multiplayer Game"
+    DEBUG: bool = True
+    
+    # تنظیمات اتصال به Redis
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str | None = None
+    
+    # تنظیمات قوانین زمانی بازی
+    DISCONNECT_TIMEOUT: int = 60  # مدت زمان مجاز قطع اتصال (ثانیه)
+    MATCHMAKING_TIMEOUT: int = 30  # مدت زمان انتظار در صف بازی (ثانیه)
+    
+    # پیکربندی نحوه خواندن تنظیمات
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+
+# ایجاد یک نمونه واحد (Singleton) از کلاس تنظیمات برای استفاده در کل پروژه
+settings = Settings()
