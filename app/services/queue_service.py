@@ -6,10 +6,11 @@ from app.utils.redis_keys import RedisKeys
 class QueueService:
     """
     Service to handle matchmaking queue operations using Redis.
+    Supports dynamic matchmaking based on both player count and piece count.
     """
 
     @staticmethod
-    async def add_to_queue(player_id: str, player_name: str, avatar_url: str, target_players: int) -> dict | None:
+    async def add_to_queue(player_id: str, player_name: str, avatar_url: str, target_players: int, pieces_count: int) -> dict | None:
         """
         Adds a player to the matchmaking queue and metadata store.
         If enough players are present, creates a room and returns the room details.
@@ -23,8 +24,8 @@ class QueueService:
         }
         await redis_client.set(player_meta_key, json.dumps(meta_data), ex=3600)
 
-        # Add player to the queue
-        queue_key = RedisKeys.matchmaking_queue(target_players)
+        # Retrieve the dynamic queue key using both player and piece counts
+        queue_key = RedisKeys.matchmaking_queue(target_players, pieces_count)
         
         # Check if player is already in queue to avoid duplicates
         queue_players = await redis_client.lrange(queue_key, 0, -1)
@@ -45,6 +46,10 @@ class QueueService:
                 room_id = str(uuid.uuid4())
                 players_with_meta = []
                 
+                # Store the pieces count configured for this room in Redis
+                # This will be fetched when initializing the game in the room websocket
+                await redis_client.set(f"room:{room_id}:pieces_count", pieces_count, ex=3600)
+                
                 for pid in matched_ids:
                     # Map player to this room ID
                     await redis_client.set(RedisKeys.player_room(pid), room_id)
@@ -58,7 +63,8 @@ class QueueService:
                 
                 return {
                     "room_id": room_id,
-                    "players": players_with_meta
+                    "players": players_with_meta,
+                    "pieces_count": pieces_count
                 }
             
             # Recovery: if we popped but couldn't form the room, push them back
@@ -68,9 +74,9 @@ class QueueService:
         return None
 
     @staticmethod
-    async def remove_from_queue(player_id: str, target_players: int) -> None:
+    async def remove_from_queue(player_id: str, target_players: int, pieces_count: int) -> None:
         """
         Removes a player from the queue when they disconnect or cancel.
         """
-        queue_key = RedisKeys.matchmaking_queue(target_players)
+        queue_key = RedisKeys.matchmaking_queue(target_players, pieces_count)
         await redis_client.lrem(queue_key, 0, player_id)

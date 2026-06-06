@@ -5,11 +5,12 @@ class RedisKeys:
     """
 
     @staticmethod
-    def matchmaking_queue(player_count: int) -> str:
+    def matchmaking_queue(player_count: int, pieces_count: int) -> str:
         """
-        Returns the key for the matchmaking queue based on player count (2p or 4p).
+        Returns the key for the matchmaking queue based on player count and pieces count.
+        Example output: "matchmaking:queue:4p:3pieces"
         """
-        return f"matchmaking:queue:{player_count}p"
+        return f"matchmaking:queue:{player_count}p:{pieces_count}pieces"
 
     @staticmethod
     def room_state(room_id: str) -> str:
