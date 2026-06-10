@@ -1,0 +1,23 @@
+
+services:
+  # Redis Database Service
+  redis:
+    image: redis:7-alpine
+    container_name: mensch-redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  # FastAPI Web Application Service
+  web:
+    build: .
+    container_name: mensch-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    # Ensure the web app waits until the Redis container is up and running
+    depends_on:
+      - redis
+    restart: always
