@@ -1,11 +1,32 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  darkMode: 'class', // Supports standard dark class toggle
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        textPrimary: "var(--text-primary)",
+        textSecondary: "var(--text-secondary)",
+        textTertiary: "var(--text-tertiary)",
+        textInvierte: "var(--text-invierte)",
+        backgroundPrimary: "var(--background-primary)",
+        backgroundSecondary: "var(--background-secondary)",
+        backgroundTertiary: "var(--background-tertiary)",
+        primary: "var(--primary)",
+        primaryContent: "var(--primary-content)",
+        secondary: "var(--secondary)",
+        secondaryContent: "var(--secondary-content)",
+        buttonPrimary: "var(--button-primary)",
+        buttonSecondary: "var(--button-secondary)",
+        success: "var(--success)",
+        error: "var(--error)",
+        warning: "var(--warning)",
+        info: "var(--info)",
+      },
+    },
   },
   plugins: [],
 }
