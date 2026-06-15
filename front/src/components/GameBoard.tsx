@@ -68,6 +68,18 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const isMyTurn = current_turn === localPlayerIndex;
 
   /**
+   * Helper function to check if a specific piece can legally move.
+   * Prevents bouncing animations on unmovable pieces.
+   */
+  const canMovePiece = (relativePos: number, diceVal: number): boolean => {
+    const numericPos = Number(relativePos);
+    if (numericPos === -1) {
+      return diceVal === 6; // Yard pieces can only leave yard on rolling a 6
+    }
+    return numericPos + diceVal <= 44; // Path cannot overshoot the absolute goal target of 44
+  };
+
+  /**
    * Identifies the CSS color theme for each player based on their visual index.
    * Visual Player 0 -> Red, 1 -> Blue, 2 -> Green, 3 -> Yellow.
    */
@@ -167,13 +179,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
       playerPieces.forEach((relativePos, pieceIdx) => {
         // Skip rendering pieces that have already reached the final goal 44
-        if (relativePos === 44) return;
+        if (Number(relativePos) === 44) return;
 
         // Fetch physical grid coordinates from our mapping utility
         const { row, col } = getPieceCoordinates(clientIdx, pieceIdx, relativePos, player_count);
 
-        // Highlight local pieces only when they can actively move
-        const isPieceSelectable = isMyTurn && dice_rolled && dice !== null;
+        // Highlight local pieces only when they can actively and legally move based on the rolled dice
+        const isPieceSelectable = isMyTurn && dice_rolled && dice !== null && canMovePiece(relativePos, dice);
 
         // Apply a small stack translation offset so pieces on the same cell do not overlap completely
         const stackOffset = (pieceIdx - 1.5) * 3;

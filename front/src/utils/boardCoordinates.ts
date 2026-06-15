@@ -159,27 +159,30 @@ export function getPieceCoordinates(
   playerCount: number
 ): GridCoordinate {
   const visualIndex = getVisualPlayerIndex(clientIndex, playerCount);
+  
+  // Safe parsing cast to guarantee numeric comparison works seamlessly
+  const numericPos = Number(relativePosition);
 
   // Case 1: Piece is in the Yard/Base (-1)
-  if (relativePosition === -1) {
+  if (numericPos === -1) {
     const slots = YARD_COORDINATES[visualIndex];
     return slots[pieceIndex % slots.length];
   }
 
   // Case 2: Piece is in the final center goal (44)
-  if (relativePosition === 44) {
+  if (numericPos === 44) {
     return CENTER_GOAL_COORDINATE;
   }
 
   // Case 3: Piece is in the private home column (40 to 43)
-  if (relativePosition >= 40 && relativePosition <= 43) {
-    return HOME_COLUMN_COORDINATES[visualIndex][relativePosition];
+  if (numericPos >= 40 && numericPos <= 43) {
+    return HOME_COLUMN_COORDINATES[visualIndex][numericPos];
   }
 
   // Case 4: Piece is on the main shared circular track (0 to 39)
-  if (relativePosition >= 0 && relativePosition <= 39) {
+  if (numericPos >= 0 && numericPos <= 39) {
     const offset = getStartingOffset(visualIndex);
-    const absoluteIndex = (relativePosition + offset) % 40;
+    const absoluteIndex = (numericPos + offset) % 40;
     return CIRCULAR_TRACK_COORDINATES[absoluteIndex];
   }
 
