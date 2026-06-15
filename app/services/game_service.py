@@ -79,8 +79,14 @@ class GameService:
         # Roll 1 to 6
         rolled = random.randint(1, 6)
         state["dice"] = rolled
-        state["dice_rolled"] = True
         
+        # Save the last roll information so the frontend can always animate it,
+        # even after the active turn rotates and clears the "dice" field.
+        state["last_roll"] = {
+            "player_id": player_id,
+            "value": rolled
+        }
+
         # Helper to check if player has any valid moves
         has_moves = GameService._player_has_valid_moves(state, player_id, rolled)
         
@@ -137,8 +143,14 @@ class GameService:
                 state["dice_rolled"] = False
             else:
                 state = GameService._rotate_turn(state)
+                # Ensure piece_index is converted to an integer to prevent TypeError crashes
+        try:
+            piece_index = int(piece_index)
+        except (ValueError, TypeError):
+            raise ValueError("Invalid piece index format")
                 
         await GameService.save_game(room_id, state)
+
         return state
 
     @staticmethod
