@@ -48,17 +48,19 @@ async def websocket_room_endpoint(
             raw_pieces_count = await redis_client.get(f"room:{room_id}:pieces_count")
             pieces_count = int(raw_pieces_count) if raw_pieces_count else 4
             
-            # Since the state does not exist yet, we initialize it using the connected lobby metadata
-            # We fetch player names/metadata dynamically to propagate back in sync_state
-            # (Matches requirement #3 & #9: propagating playerName & playerAvatarUrl)
+            # Fetch the target player capacity (e.g. 2 or 4) set by matchmaking queue
+            raw_player_count = await redis_client.get(f"room:{room_id}:player_count")
+            player_count = int(raw_player_count) if raw_player_count else 2
+            
+            # Fetch player names/metadata dynamically to propagate back in sync_state
             player_meta = await redis_client.get(f"player:{playerId}:meta")
             meta_dict = json.loads(player_meta) if player_meta else {"id": playerId, "name": playerName, "avatar": ""}
             
-            # Initialize with default placeholders for missing metadata during manual room connects
+            # Initialize room state with the correct fixed room capacity
             initial_players = [meta_dict]
-            state = await GameService.create_game(room_id, initial_players, pieces_count)
+            state = await GameService.create_game(room_id, initial_players, pieces_count, player_count)
         else:
-            # If state already exists but connecting player is missing from players list (e.g. late joiner)
+            # If state already exists but connecting player is missing from players list
             player_ids = [p["id"] for p in state["players"]]
             if playerId not in player_ids:
                 player_meta = await redis_client.get(f"player:{playerId}:meta")
@@ -77,56 +79,92 @@ async def websocket_room_endpoint(
         # Main gameplay listen loop
         while True:
             data = await websocket.receive_text()
-            message = json.loads(data)
-            action = message.get("action")
             
-            # Action 1: Rolling the dice
-            if action == "roll_dice":
-                state = await GameService.roll_dice(room_id, playerId)
-                await room_manager.broadcast(room_id, {
-                    "type": "sync_state",
-                    "game": state
-                })
+            # Inner try-except to isolate game logic exceptions from network level disconnections.
+            try:
+                message = json.loads(data)
+                action = message.get("action")
                 
-            # Action 2: Moving a specific piece
-            elif action == "move_piece":
-                piece_index = message.get("piece_index")
-                if piece_index is None:
-                    continue
-                state = await GameService.move_piece(room_id, playerId, int(piece_index))
-                await room_manager.broadcast(room_id, {
-                    "type": "sync_state",
-                    "game": state
-                })
-                
-            # Action 3: Reset pieces for next round but keep session/players intact (Requirement #7)
-            elif action == "next_round":
-                state = await GameService.get_game(room_id)
-                if state:
-                    # Re-initialize pieces back to yard while keeping scores/player lists
-                    state = await GameService.create_game(room_id, state["players"], state["pieces_count"])
+                # Action 1: Rolling the dice
+                if action == "roll_dice":
+                    state = await GameService.roll_dice(room_id, playerId)
                     await room_manager.broadcast(room_id, {
                         "type": "sync_state",
                         "game": state
                     })
                     
-            # Action 4: Completely restart and clear the game (Requirement #7)
-            elif action == "restart_game":
-                state = await GameService.get_game(room_id)
-                if state:
-                    state = await GameService.create_game(room_id, state["players"], state["pieces_count"])
+                # Action 2: Moving a specific piece
+                elif action == "move_piece":
+                    piece_index = message.get("piece_index")
+                    if piece_index is None:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "piece_index is required for move_piece action"
+                        })
+                        continue
+                        
+                    # Safe cast to prevent ValueError crash from unparsable string indices
+                    try:
+                        parsed_index = int(piece_index)
+                    except (ValueError, TypeError):
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Invalid piece_index format. Must be an integer."
+                        })
+                        continue
+
+                    state = await GameService.move_piece(room_id, playerId, parsed_index)
                     await room_manager.broadcast(room_id, {
                         "type": "sync_state",
                         "game": state
                     })
+                    
+                # Action 3: Reset pieces for next round but keep session/players intact
+                elif action == "next_round":
+                    state = await GameService.get_game(room_id)
+                    if state:
+                        state = await GameService.create_game(room_id, state["players"], state["pieces_count"], state["player_count"])
+                        await room_manager.broadcast(room_id, {
+                            "type": "sync_state",
+                            "game": state
+                        })
+                        
+                # Action 4: Completely restart and clear the game
+                elif action == "restart_game":
+                    state = await GameService.get_game(room_id)
+                    if state:
+                        state = await GameService.create_game(room_id, state["players"], state["pieces_count"], state["player_count"])
+                        await room_manager.broadcast(room_id, {
+                            "type": "sync_state",
+                            "game": state
+                        })
+                        
+            except json.JSONDecodeError:
+                # Handle malformed client JSON without dropping the connection
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Malformed JSON payload received"
+                })
+            except ValueError as e:
+                # Handle logical errors gracefully
+                await websocket.send_json({
+                    "type": "error",
+                    "message": str(e)
+                })
+            except Exception as e:
+                # Fallback for any other unexpected logic-level exception
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"An unexpected error occurred: {str(e)}"
+                })
 
     except WebSocketDisconnect:
-        # Player closed connection or disconnected
+        # Player intentionally closed the connection or dropped off physically
         room_manager.disconnect(room_id, playerId)
-        # Start the 60-second forfeit countdown background task (Requirement #8)
+        # Start the 60-second forfeit countdown background task
         room_manager.start_disconnect_timer(room_id, playerId, forfeit_active_player)
         
     except Exception:
-        # Handle connection errors gracefully
+        # Handle transport layer connection drops gracefully
         room_manager.disconnect(room_id, playerId)
         room_manager.start_disconnect_timer(room_id, playerId, forfeit_active_player)
