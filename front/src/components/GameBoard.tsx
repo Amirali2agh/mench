@@ -184,6 +184,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         // Fetch physical grid coordinates from our mapping utility
         const { row, col } = getPieceCoordinates(clientIdx, pieceIdx, relativePos, player_count);
 
+        // Debug log to trace exact generated coordinates for each active piece
+        console.log(`RENDER PIECE: Player ${player.name} (${player.id}) - Piece ${pieceIdx} relative ${relativePos} maps to row ${row}, col ${col}`);
+
         // Highlight local pieces only when they can actively and legally move based on the rolled dice
         const isPieceSelectable = isMyTurn && dice_rolled && dice !== null && canMovePiece(relativePos, dice);
 
@@ -202,7 +205,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               transform: `translate(${stackOffset}px, ${stackOffset}px)`,
               zIndex: isPieceSelectable ? 30 : 20
             }}
-            className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center shadow-lg transition-all duration-300 absolute self-center justify-self-center ${
+            className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center shadow-lg transition-all duration-300 relative self-center justify-self-center ${
               colorTheme.bg
             } ${
               isPieceSelectable
