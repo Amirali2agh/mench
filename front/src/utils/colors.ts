@@ -1,56 +1,48 @@
-/**
- * @file src/utils/colors.ts
- * @description Centralized color theme definitions for Ludo Game.
- * Theme: Gold & Red (Game Optimized)
- */
+// front/src/utils/colors.ts
 
-const colors = {
-  light: {
-    textPrimary: "#1F2937",
-    textSecondary: "#4B5563",
-    textTertiary: "#9CA3AF",
-    textInvierte: "#FFFFFF",
-    backgroundPrimary: "#FFFBEB", // Very pale gold tint
-    backgroundSecondary: "#FFFFFF",
-    backgroundTertiary: "#FEF3C7",
-    primary: "#E31B23", // Bold Red
-    primaryContent: "#FFFFFF",
-    secondary: "#F5B81B", // Bright Gold
-    secondaryContent: "#1F2937",
-    buttonPrimary: "#E31B23",
-    buttonSecondary: "#F5B81B",
-    buttonGradient: ["#E31B23", "#F5B81B"] as const,
-    tabBarInactive: "#FDE68A",
-    tabBarActive: "#E31B23",
-    iconDefault: "#6B7280",
-    success: "#10B981",
-    error: "#E31B23",
-    warning: "#F59E0B",
-    info: "#3B82F6",
+export interface ColorTheme {
+  primary: string;
+  bg: string;
+  piece: string;
+  pieceBorder: string;
+  accent: string;
+  homeStrip: string;
+}
+
+export const playerColors: Record<number, ColorTheme> = {
+  0: {
+    primary: 'text-red-600 bg-red-600',
+    bg: 'bg-red-500',
+    piece: 'bg-red-600',
+    pieceBorder: 'border-red-800',
+    accent: 'bg-red-100',
+    homeStrip: 'bg-red-600/20'
   },
-  dark: {
-    textPrimary: "#FEF3C7", // Soft gold
-    textSecondary: "#FDE68A",
-    textTertiary: "#D4A373",
-    textInvierte: "#111827",
-    backgroundPrimary: "#0F0F0F", // Almost black (clean)
-    backgroundSecondary: "rgba(19, 27, 28, 0.8)",
-    backgroundTertiary: "#262626",
-    primary: "#FF3B30", // Bright red (iOS-style but works)
-    primaryContent: "#FFFFFF",
-    secondary: "#F5B81B", // Gold
-    secondaryContent: "#0F0F0F",
-    buttonPrimary: "#FF3B30",
-    buttonSecondary: "#F5B81B",
-    buttonGradient: ["#FF3B30", "#9e221b"] as const,
-    tabBarInactive: "#3F3F3F",
-    tabBarActive: "#FF3B30",
-    iconDefault: "#A1A1AA",
-    success: "#34D399",
-    error: "#FF453A",
-    warning: "#FBBF24",
-    info: "#60A5FA",
+  1: {
+    primary: 'text-blue-600 bg-blue-600',
+    bg: 'bg-blue-500',
+    piece: 'bg-blue-600',
+    pieceBorder: 'border-blue-800',
+    accent: 'bg-blue-100',
+    homeStrip: 'bg-blue-600/20'
   },
+  2: {
+    primary: 'text-green-600 bg-green-600',
+    bg: 'bg-green-500',
+    piece: 'bg-green-600',
+    pieceBorder: 'border-green-800',
+    accent: 'bg-green-100',
+    homeStrip: 'bg-green-600/20'
+  },
+  3: {
+    primary: 'text-yellow-500 bg-yellow-500',
+    bg: 'bg-yellow-400',
+    piece: 'bg-yellow-500',
+    pieceBorder: 'border-yellow-700',
+    accent: 'bg-yellow-100',
+    homeStrip: 'bg-yellow-500/20'
+  }
 };
 
-export default colors;
+// خروجی پیش‌فرض برای حل مشکل ایمپورت در theme.ts
+export default playerColors;

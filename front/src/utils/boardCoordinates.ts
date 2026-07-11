@@ -1,191 +1,103 @@
-/**
- * @file src/utils/boardCoordinates.ts
- * @description Translates backend relative piece positions (-1 to 44) 
- * into physical grid coordinates (row, col) on an 11x11 board layout.
- */
+// front/src/utils/boardCoordinates.ts
 
-// Interface defining the row and column structure on our 11x11 board.
-export interface GridCoordinate {
-  row: number; // Row index from 0 (top) to 10 (bottom)
-  col: number; // Column index from 0 (left) to 10 (right)
+export interface GridCoord {
+  r: number; // Row (0 to 10)
+  c: number; // Column (0 to 10)
 }
 
-/**
- * Ordered list of the 40 shared circular track spaces on the 11x11 grid.
- * Index 0 represents the starting point of Player 0 (Red) at (4, 0).
- * The track flows clockwise around the cross-shaped board.
- */
-export const CIRCULAR_TRACK_COORDINATES: GridCoordinate[] = [
-  { row: 4, col: 0 },  // 0  (Player 0 Red Start)
-  { row: 4, col: 1 },  // 1
-  { row: 4, col: 2 },  // 2
-  { row: 4, col: 3 },  // 3
-  { row: 4, col: 4 },  // 4
-  { row: 3, col: 4 },  // 5
-  { row: 2, col: 4 },  // 6
-  { row: 1, col: 4 },  // 7
-  { row: 0, col: 4 },  // 8
-  { row: 0, col: 5 },  // 9  (Top turn)
-  { row: 0, col: 6 },  // 10 (Player 1 Blue Start)
-  { row: 1, col: 6 },  // 11
-  { row: 2, col: 6 },  // 12
-  { row: 3, col: 6 },  // 13
-  { row: 4, col: 6 },  // 14
-  { row: 4, col: 7 },  // 15
-  { row: 4, col: 8 },  // 16
-  { row: 4, col: 9 },  // 17
-  { row: 4, col: 10 }, // 18
-  { row: 5, col: 10 }, // 19 (Right turn)
-  { row: 6, col: 10 }, // 20 (Player 2 Green Start)
-  { row: 6, col: 9 },  // 21
-  { row: 6, col: 8 },  // 22
-  { row: 6, col: 7 },  // 23
-  { row: 6, col: 6 },  // 24
-  { row: 7, col: 6 },  // 25
-  { row: 8, col: 6 },  // 26
-  { row: 9, col: 6 },  // 27
-  { row: 10, col: 6 }, // 28
-  { row: 10, col: 5 }, // 29 (Bottom turn)
-  { row: 10, col: 4 }, // 30 (Player 3 Yellow Start)
-  { row: 9, col: 4 },  // 31
-  { row: 8, col: 4 },  // 32
-  { row: 7, col: 4 },  // 33
-  { row: 6, col: 4 },  // 34
-  { row: 6, col: 3 },  // 35
-  { row: 6, col: 2 },  // 36
-  { row: 6, col: 1 },  // 37
-  { row: 6, col: 0 },  // 38
-  { row: 5, col: 0 },  // 39 (Left turn)
+// ۴۰ خانه مسیر چرخشی بیرونی به صورت ساعت‌گرد
+export const circularTrack: GridCoord[] = [
+  // بازوی بالا، سمت راست به سمت پایین
+  { r: 0, c: 6 }, { r: 1, c: 6 }, { r: 2, c: 6 }, { r: 3, c: 6 },
+  // بازوی راست، به سمت انتهای راست
+  { r: 4, c: 7 }, { r: 4, c: 8 }, { r: 4, c: 9 }, { r: 4, c: 10 },
+  { r: 5, c: 10 }, // انتهای بازوی راست (چرخش)
+  // بازوی راست، در مسیر بازگشت به چپ
+  { r: 6, c: 10 }, { r: 6, c: 9 }, { r: 6, c: 8 }, { r: 6, c: 7 }, { r: 6, c: 6 },
+  // بازوی پایین، به سمت انتهای پایین
+  { r: 7, c: 6 }, { r: 8, c: 6 }, { r: 9, c: 6 }, { r: 10, c: 6 },
+  { r: 10, c: 5 }, // انتهای بازوی پایین (چرخش)
+  // بازوی پایین، در مسیر بازگشت به بالا
+  { r: 10, c: 4 }, { r: 9, c: 4 }, { r: 8, c: 4 }, { r: 7, c: 4 }, { r: 6, c: 4 },
+  // بازوی چپ، به سمت انتهای چپ
+  { r: 6, c: 3 }, { r: 6, c: 2 }, { r: 6, c: 1 }, { r: 6, c: 0 },
+  { r: 5, c: 0 }, // انتهای بازوی چپ (چرخش)
+  // بازوی چپ، در مسیر بازگشت به راست
+  { r: 4, c: 0 }, { r: 4, c: 1 }, { r: 4, c: 2 }, { r: 4, c: 3 }, { r: 4, c: 4 },
+  // بازوی بالا، به سمت انتهای بالا
+  { r: 3, c: 4 }, { r: 2, c: 4 }, { r: 1, c: 4 }, { r: 0, c: 4 },
+  { r: 0, c: 5 }  // انتهای بازوی بالا (چرخش)
 ];
 
-/**
- * Yard (Base) coordinate mapping for all 4 players.
- * Represents where pieces sit when they are in the starting area (-1 state).
- * Each yard has 4 slots to hold 4 distinct pieces without overlap.
- */
-export const YARD_COORDINATES: Record<number, GridCoordinate[]> = {
-  // Visual Player 0 (Red) - Top Left
-  0: [
-    { row: 1, col: 1 }, { row: 1, col: 2 },
-    { row: 2, col: 1 }, { row: 2, col: 2 }
-  ],
-  // Visual Player 1 (Blue) - Top Right
-  1: [
-    { row: 1, col: 8 }, { row: 1, col: 9 },
-    { row: 2, col: 8 }, { row: 2, col: 9 }
-  ],
-  // Visual Player 2 (Green) - Bottom Right
-  2: [
-    { row: 8, col: 8 }, { row: 8, col: 9 },
-    { row: 9, col: 8 }, { row: 9, col: 9 }
-  ],
-  // Visual Player 3 (Yellow) - Bottom Left
-  3: [
-    { row: 8, col: 1 }, { row: 8, col: 2 },
-    { row: 9, col: 1 }, { row: 9, col: 2 }
-  ]
+// پایگاه‌های بازیکنان (حیاط یا Yardها) - دایره‌های بزرگ ۴ نفره
+export const baseCoords: Record<number, GridCoord[]> = {
+  0: [{ r: 1, c: 8 }, { r: 1, c: 9 }, { r: 2, c: 8 }, { r: 2, c: 9 }],   // پایگاه قرمز (بالا-راست)
+  1: [{ r: 8, c: 8 }, { r: 8, c: 9 }, { r: 9, c: 8 }, { r: 9, c: 9 }],   // پایگاه آبی (پایین-راست)
+  2: [{ r: 1, c: 1 }, { r: 1, c: 2 }, { r: 2, c: 1 }, { r: 2, c: 2 }],   // پایگاه سبز (بالا-چپ)
+  3: [{ r: 8, c: 1 }, { r: 8, c: 2 }, { r: 9, c: 1 }, { r: 9, c: 2 }]    // پایگاه زرد (پایین-چپ)
 };
 
-/**
- * Home path private columns for all 4 players (positions 40 to 43).
- * Each maps relative indexes 40, 41, 42, 43 to grid spaces.
- */
-export const HOME_COLUMN_COORDINATES: Record<number, Record<number, GridCoordinate>> = {
-  // Visual Player 0 (Red): Horizontal path heading right
-  0: {
-    40: { row: 5, col: 1 }, 41: { row: 5, col: 2 }, 42: { row: 5, col: 3 }, 43: { row: 5, col: 4 }
-  },
-  // Visual Player 1 (Blue): Vertical path heading down
-  1: {
-    40: { row: 1, col: 5 }, 41: { row: 2, col: 5 }, 42: { row: 3, col: 5 }, 43: { row: 4, col: 5 }
-  },
-  // Visual Player 2 (Green): Horizontal path heading left
-  2: {
-    40: { row: 5, col: 9 }, 41: { row: 5, col: 8 }, 42: { row: 5, col: 7 }, 43: { row: 5, col: 6 }
-  },
-  // Visual Player 3 (Yellow): Vertical path heading up
-  3: {
-    40: { row: 9, col: 5 }, 41: { row: 8, col: 5 }, 42: { row: 7, col: 5 }, 43: { row: 6, col: 5 }
-  }
+// خانه‌های امن هوم‌استرچ (مقادیر ۴۰ تا ۴۳)
+export const homeCoords: Record<number, GridCoord[]> = {
+  0: [{ r: 1, c: 5 }, { r: 2, c: 5 }, { r: 3, c: 5 }, { r: 4, c: 5 }],   // مسیر امن قرمز (بالا به مرکز)
+  1: [{ r: 5, c: 9 }, { r: 5, c: 8 }, { r: 5, c: 7 }, { r: 5, c: 6 }],   // مسیر امن آبی (راست به مرکز)
+  2: [{ r: 5, c: 1 }, { r: 5, c: 2 }, { r: 5, c: 3 }, { r: 5, c: 4 }],   // مسیر امن سبز (چپ به مرکز)
+  3: [{ r: 9, c: 5 }, { r: 8, c: 5 }, { r: 7, c: 5 }, { r: 6, c: 5 }]    // مسیر امن زرد (پایین به مرکز)
 };
 
-// Center goal tile (position 44) where all players finish.
-export const CENTER_GOAL_COORDINATE: GridCoordinate = { row: 5, col: 5 };
+// خانه هدف نهایی (مرکز بورد)
+export const goalCoord: GridCoord = { r: 5, c: 5 };
 
 /**
- * Map client player index to a visually logical position.
- * For a 2-player game, we place them opposite of each other (Red & Green) for balanced look.
- *
- * @param clientIndex Index of the player in the backend 'players' array (0 or 1 for 2P, 0-3 for 4P)
- * @param playerCount Maximum capacity of the match (2 or 4)
- * @returns Visual layout index (0 to 3) representing Red, Blue, Green, Yellow
+ * تبدیل مختصات بازی (-1 تا 44) به سطر و ستون فیزیکی گرید ۱۱در۱۱
  */
-export function getVisualPlayerIndex(clientIndex: number, playerCount: number): number {
-  if (playerCount === 2) {
-    // Player 0 stays Red (0), Player 1 becomes Green (2)
-    return clientIndex === 0 ? 0 : 2;
+export function getGridCoordinates(playerIdx: number, pos: number, pieceIdx: number): GridCoord {
+  // اگر مهره در حیاط باشد (-1)
+  if (pos === -1) {
+    return baseCoords[playerIdx]?.[pieceIdx] || { r: 0, c: 0 };
   }
-  // In 4-player games, visual and client indexes are perfectly aligned
-  return clientIndex;
+  // اگر در مسیر چرخشی بیرونی باشد (0 تا 39)
+  if (pos >= 0 && pos <= 39) {
+    return circularTrack[pos];
+  }
+  // اگر در مسیر امن منتهی به هدف باشد (40 تا 43)
+  if (pos >= 40 && pos <= 43) {
+    const homeIndex = pos - 40;
+    return homeCoords[playerIdx]?.[homeIndex] || { r: 5, c: 5 };
+  }
+  // خانه نهایی (44)
+  return goalCoord;
 }
 
 /**
- * Gets the starting offset for a player based on their visual index and player count.
- * Matches starting absolute offset specs defined in ARCHITECTURE.md.
+ * تشخیص جهت فلش‌های داخل هر خانه مسیر به صورت ساعت‌گرد
  */
-export function getStartingOffset(visualIndex: number): number {
-  switch (visualIndex) {
-    case 0: return 0;   // Player 0 (Red) starts at absolute 0
-    case 1: return 10;  // Player 1 (Blue) starts at absolute 10
-    case 2: return 20;  // Player 2 (Green) starts at absolute 20
-    case 3: return 30;  // Player 3 (Yellow) starts at absolute 30
-    default: return 0;
-  }
-}
+export function getArrowRotation(coord: GridCoord): string {
+  const { r, c } = coord;
+  // حرکت به سمت پایین (بازوی بالا سطر 0-3، ستون 6)
+  if (c === 6 && r >= 0 && r <= 3) return 'rotate-90';
+  // حرکت به سمت راست (سطر 4، ستون 6-10)
+  if (r === 4 && c >= 6 && c <= 10) return 'rotate-0';
+  // چرخش انتهای بازوی راست به سمت پایین
+  if (r === 5 && c === 10) return 'rotate-90';
+  // حرکت به سمت چپ (سطر 6، ستون 6-10)
+  if (r === 6 && c >= 6 && c <= 10) return 'rotate-180';
+  // حرکت به سمت پایین (سطر 7-10، ستون 6)
+  if (c === 6 && r >= 7 && r <= 10) return 'rotate-90';
+  // چرخش انتهای بازوی پایین به سمت چپ
+  if (r === 10 && c === 5) return 'rotate-180';
+  // حرکت به سمت بالا (سطر 6-10، ستون 4)
+  if (c === 4 && r >= 6 && r <= 10) return 'rotate-270';
+  // حرکت به سمت چپ (سطر 6، ستون 0-3)
+  if (r === 6 && c >= 0 && c <= 3) return 'rotate-180';
+  // چرخش انتهای بازوی چپ به سمت بالا
+  if (r === 5 && c === 0) return 'rotate-270';
+  // حرکت به سمت راست (سطر 4، ستون 0-4)
+  if (r === 4 && c >= 0 && c <= 4) return 'rotate-0';
+  // حرکت به سمت بالا (سطر 0-3، ستون 4)
+  if (c === 4 && r >= 0 && r <= 3) return 'rotate-270';
+  // چرخش انتهای بازوی بالا به سمت راست
+  if (r === 0 && c === 5) return 'rotate-0';
 
-/**
- * Main utility function to translate a relative position into (row, col) coordinates.
- *
- * @param clientIndex The index of the player in the backend players list (0 to playerCount - 1)
- * @param pieceIndex Index of the specific piece (0 to pieces_count - 1)
- * @param relativePosition Relative position on the board (-1 to 44)
- * @param playerCount Total players in the game (2 or 4)
- * @returns Precise GridCoordinate for placing the piece on the grid
- */
-export function getPieceCoordinates(
-  clientIndex: number,
-  pieceIndex: number,
-  relativePosition: number,
-  playerCount: number
-): GridCoordinate {
-  const visualIndex = getVisualPlayerIndex(clientIndex, playerCount);
-  
-  // Safe parsing cast to guarantee numeric comparison works seamlessly
-  const numericPos = Number(relativePosition);
-
-  // Case 1: Piece is in the Yard/Base (-1)
-  if (numericPos === -1) {
-    const slots = YARD_COORDINATES[visualIndex];
-    return slots[pieceIndex % slots.length];
-  }
-
-  // Case 2: Piece is in the final center goal (44)
-  if (numericPos === 44) {
-    return CENTER_GOAL_COORDINATE;
-  }
-
-  // Case 3: Piece is in the private home column (40 to 43)
-  if (numericPos >= 40 && numericPos <= 43) {
-    return HOME_COLUMN_COORDINATES[visualIndex][numericPos];
-  }
-
-  // Case 4: Piece is on the main shared circular track (0 to 39)
-  if (numericPos >= 0 && numericPos <= 39) {
-    const offset = getStartingOffset(visualIndex);
-    const absoluteIndex = (numericPos + offset) % 40;
-    return CIRCULAR_TRACK_COORDINATES[absoluteIndex];
-  }
-
-  // Fallback default in case of unexpected state
-  return CENTER_GOAL_COORDINATE;
+  return '';
 }

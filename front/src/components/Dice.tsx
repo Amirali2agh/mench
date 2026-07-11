@@ -1,142 +1,114 @@
-/**
- * @file src/components/Dice.tsx
- * @description Interactive 2D/3D-like Dice component designed in English.
- * Features rolling animations, dot patterns for values 1-6, and active turn highlights.
- */
+// front/src/components/Dice.tsx
 
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 
 interface DiceProps {
-  /**
-   * The current numeric value of the dice (1 to 6) or null if not rolled.
-   */
-  value: number | null;
-  /**
-   * Indicates if the current player is allowed to roll the dice.
-   */
-  canRoll: boolean;
-  /**
-   * Callback executed when the player clicks the dice to trigger a roll.
-   */
-  onRoll: () => void;
+  value: number | null; // مقدار تاس (۱ تا ۶)
+  isRolling: boolean;   // آیا در حال چرخش است؟
 }
 
-export const Dice: React.FC<DiceProps> = ({ value, canRoll, onRoll }) => {
-  // Local state to trigger a temporary rolling spin animation on click
-  const [isRolling, setIsRolling] = useState<boolean>(false);
+export const Dice: React.FC<DiceProps> = ({ value, isRolling }) => {
+  // اگر تاسی ریخته نشده باشد، پیش‌فرض را روی ۱ می‌گذاریم تا مکعب خالی نباشد
+  const displayValue = value || 1;
 
-  /**
-   * Triggers local rolling animation before executing the backend roll action.
-   */
-  const handleRollClick = () => {
-    if (!canRoll || isRolling) return;
+  // ایجاد یک زاویه انحراف رندوم و ارگانیک برای زمان فرود آمدن (مشابه عکس تخته‌نرد)
+  const randomTilt = useMemo(() => {
+    if (isRolling) return '';
+    const rotateZ = Math.floor(Math.random() * 24) - 12; // انحراف بین -۱۲ تا +۱۲ درجه
+    const rotateXOffset = Math.floor(Math.random() * 10) - 5;
+    const rotateYOffset = Math.floor(Math.random() * 10) - 5;
+    return `rotateZ(${rotateZ}deg) rotateX(${rotateXOffset}deg) rotateY(${rotateYOffset}deg)`;
+  }, [isRolling, displayValue]);
 
-    // Trigger local rolling state for 600ms to simulate physical dice spin
-    setIsRolling(true);
-    
-    // Execute backend trigger action immediately
-    onRoll();
+  // رندر نقاط سیاه روی هر وجه مکعب بر اساس شماره وجه
+  const renderPips = (faceValue: number) => {
+    // موقعیت نقاط در یک گرید ۳در۳ برای شبیه‌سازی وجوه تاس
+    const pipPositions: Record<number, number[]> = {
+      1: [4],                          // نقطه وسط
+      2: [0, 8],                       // گوشه بالا-چپ، پایین-راست
+      3: [0, 4, 8],                    // سه نقطه اریب
+      4: [0, 2, 6, 8],                 // چهار گوشه
+      5: [0, 2, 4, 6, 8],              // چهار گوشه + وسط
+      6: [0, 2, 3, 5, 6, 8],           // سه نقطه چپ، سه نقطه راست
+    };
 
-    setTimeout(() => {
-      setIsRolling(false);
-    }, 600);
-  };
-
-  /**
-   * Helper function to render correct dot positions on the 3x3 grid 
-   * of the dice face based on values 1 to 6.
-   */
-  const renderDots = (val: number) => {
-    // Array representing 9 slots (3x3 grid) on a dice face
-    const dots = Array(9).fill(false);
-
-    // Map dice numbers to specific grid indices
-    switch (val) {
-      case 1:
-        dots[4] = true; // Center
-        break;
-      case 2:
-        dots[0] = true; // Top-Left
-        dots[8] = true; // Bottom-Right
-        break;
-      case 3:
-        dots[0] = true; // Top-Left
-        dots[4] = true; // Center
-        dots[8] = true; // Bottom-Right
-        break;
-      case 4:
-        dots[0] = true; // Top-Left
-        dots[2] = true; // Top-Right
-        dots[6] = true; // Bottom-Left
-        dots[8] = true; // Bottom-Right
-        break;
-      case 5:
-        dots[0] = true; // Top-Left
-        dots[2] = true; // Top-Right
-        dots[4] = true; // Center
-        dots[6] = true; // Bottom-Left
-        dots[8] = true; // Bottom-Right
-        break;
-      case 6:
-        dots[0] = true; // Top-Left
-        dots[2] = true; // Top-Right
-        dots[3] = true; // Middle-Left
-        dots[5] = true; // Middle-Right
-        dots[6] = true; // Bottom-Left
-        dots[8] = true; // Bottom-Right
-        break;
-    }
+    const activePips = pipPositions[faceValue] || [];
 
     return (
-      <div className="grid grid-cols-3 gap-1.5 w-12 h-12 p-1.5 justify-items-center items-center">
-        {dots.map((active, idx) => (
-          <div
-            key={idx}
-            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
-              active ? 'bg-slate-900 scale-100 shadow-sm' : 'bg-transparent scale-0'
-            }`}
-          />
+      <div className="grid grid-cols-3 grid-rows-3 gap-1 p-2.5 h-full w-full bg-gradient-to-br from-white via-stone-50 to-stone-200 rounded-2xl border border-stone-300/45 shadow-inner">
+        {Array.from({ length: 9 }).map((_, idx) => (
+          <div key={idx} className="flex items-center justify-center">
+            {activePips.includes(idx) && (
+              <div className="w-3.5 h-3.5 rounded-full bg-slate-950 shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),_0_1px_2px_rgba(0,0,0,0.6)]" />
+            )}
+          </div>
         ))}
       </div>
     );
   };
 
+  // چرخاندن مکعب سه‌بعدی برای نشان دادن وجه درست پس از اتمام چرخش
+  const getLandedTransform = (val: number) => {
+    switch (val) {
+      case 1: return 'rotateX(0deg) rotateY(0deg)';
+      case 6: return 'rotateX(0deg) rotateY(180deg)';
+      case 3: return 'rotateX(0deg) rotateY(-90deg)';
+      case 4: return 'rotateX(0deg) rotateY(90deg)';
+      case 2: return 'rotateX(-90deg) rotateY(0deg)';
+      case 5: return 'rotateX(90deg) rotateY(0deg)';
+      default: return 'rotateX(0deg) rotateY(0deg)';
+    }
+  };
+
+  const transformStyle = isRolling
+    ? undefined
+    : { transform: `${getLandedTransform(displayValue)} ${randomTilt}` };
+
   return (
-    <div className="flex flex-col items-center justify-center gap-3">
-      {/* Interactive Dice Block */}
-      <button
-        type="button"
-        disabled={!canRoll || isRolling}
-        onClick={handleRollClick}
-        className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-xl border-2 transition-all duration-300 relative select-none ${
-          canRoll && !isRolling
-            ? 'bg-gradient-to-br from-white to-slate-100 border-indigo-400 hover:border-indigo-500 hover:shadow-indigo-500/20 active:scale-90 cursor-pointer animate-pulse'
-            : 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
-        } ${isRolling ? 'animate-spin scale-110 border-indigo-500 shadow-indigo-500/30' : ''}`}
-      >
-        {/* Render value dots or show a fallback state if empty */}
-        {value && !isRolling ? (
-          renderDots(value)
-        ) : (
-          <div className="text-2xl font-black text-indigo-400">
-            {isRolling ? '?' : 'ROLL'}
+    <div className="flex flex-col items-center justify-center relative w-24 h-24 my-2">
+      {/* ۱. سایه سه‌بعدی نرم بیضی‌شکل زیر تاس (Deep Soft Drop Shadow) */}
+      <div 
+        className={`absolute bottom-[-15px] w-20 h-4 rounded-full bg-black/45 blur-md transition-all duration-300 transform ${
+          isRolling ? 'scale-75 opacity-60 animate-pulse' : 'scale-100 opacity-100'
+        }`} 
+      />
+
+      {/* ۲. محفظه پرسپکتیو سه‌بعدی تاس */}
+      <div className="w-20 h-20 [perspective:1000px] flex items-center justify-center">
+        <div
+          style={transformStyle}
+          className={`w-full h-full relative [transform-style:preserve-3d] transition-transform duration-500 ease-out ${
+            isRolling ? 'animate-[spin3D_0.6s_infinite_linear]' : ''
+          }`}
+        >
+          {/* وجه ۱ (جلو) - translateZ دقیقاً نصف ابعاد تاس (40px) */}
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(0deg)_translateZ(40px)]">
+            {renderPips(1)}
           </div>
-        )}
-
-        {/* Outer subtle glow indicators if it is local player's active turn */}
-        {canRoll && !isRolling && (
-          <span className="absolute -inset-1 rounded-2xl border-2 border-indigo-500/30 animate-ping pointer-events-none" />
-        )}
-      </button>
-
-      {/* Helper text display for active status feedback */}
-      <span className="text-xs font-semibold tracking-wider text-slate-400 uppercase">
-        {isRolling
-          ? 'Rolling...'
-          : canRoll
-          ? 'Your Turn - Click!'
-          : 'Waiting...'}
-      </span>
+          {/* وجه ۶ (پشت) */}
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(40px)]">
+            {renderPips(6)}
+          </div>
+          {/* وجه ۳ (راست) */}
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(90deg)_translateZ(40px)]">
+            {renderPips(3)}
+          </div>
+          {/* وجه ۴ (چپ) */}
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(-90deg)_translateZ(40px)]">
+            {renderPips(4)}
+          </div>
+          {/* وجه ۲ (بالا) */}
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateX(90deg)_translateZ(40px)]">
+            {renderPips(2)}
+          </div>
+          {/* وجه ۵ (پایین) */}
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateX(-90deg)_translateZ(40px)]">
+            {renderPips(5)}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
+
+export default Dice;

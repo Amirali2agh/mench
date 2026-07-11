@@ -137,7 +137,7 @@ export function useMenschSocket() {
     const params = new URLSearchParams({
       playerId,
       playerName: name,
-      playerAvatarUrl: avatar || 'https://api.dicebear.com/7.x/bottts/svg',
+      playerAvatarUrl: "",
       playerCount: playerCount.toString(),
       piecesCount: piecesCount.toString()
     });

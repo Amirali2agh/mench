@@ -1,40 +1,18 @@
-/**
- * @file src/components/GameBoard.tsx
- * @description Master GameBoard component designed in English.
- * Renders an 11x11 Ludo grid, places game pieces dynamically with offset stack separation,
- * integrates turn indicators, countdowns, and the interactive Dice.
- */
+// front/src/components/GameBoard.tsx
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { GameState } from '../types';
-import { getPieceCoordinates, getVisualPlayerIndex } from '../utils/boardCoordinates';
-import { Dice } from './Dice';
+import { playerColors } from '../utils/colors';
+import { getGridCoordinates, getArrowRotation, GridCoord } from '../utils/boardCoordinates';
+import Dice from './Dice';
 
 interface GameBoardProps {
-  /**
-   * The complete, synchronized game state received from the room WS.
-   */
   gameState: GameState;
-  /**
-   * Player ID of the local browser user.
-   */
-  localPlayerId: string;
-  /**
-   * Callback to roll the dice.
-   */
+  localPlayerId: string; // متغیر هماهنگ شده با App.tsx شما
   onRollDice: () => void;
-  /**
-   * Callback to move a specific piece index (0 to pieces_count - 1).
-   */
   onMovePiece: (pieceIndex: number) => void;
-  /**
-   * Callback to hard-restart the entire game session.
-   */
   onRestartGame: () => void;
-  /**
-   * Callback to exit the session and return to lobby.
-   */
-  onLeave: () => void;
+  onLeave: () => void;       // متغیر هماهنگ شده با App.tsx شما
 }
 
 export const GameBoard: React.FC<GameBoardProps> = ({
@@ -45,262 +23,241 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onRestartGame,
   onLeave,
 }) => {
-  const { players, current_turn, dice, dice_rolled, pieces, player_count } = gameState;
+  const { players, current_turn, pieces, pieces_count } = gameState;
 
-  // Local turn timer countdown (matches server's 60s rule)
-  const [turnTimeLeft, setTurnTimeLeft] = useState<number>(60);
+  // پیدا کردن نوبت بازیکن محلی
+  const localPlayerIdx = players.findIndex((p) => p.id === localPlayerId);
+  const isMyTurn = current_turn === localPlayerIdx;
 
-  // Sync and reset local turn timer when the turn changes in the game state
-  useEffect(() => {
-    setTurnTimeLeft(60);
-  }, [current_turn]);
-
-  // Handle local countdown decrement every second
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTurnTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Locate local player index and details
-  const localPlayerIndex = players.findIndex((p) => p.id === localPlayerId);
-  const isMyTurn = current_turn === localPlayerIndex;
-
-  /**
-   * Helper function to check if a specific piece can legally move.
-   * Prevents bouncing animations on unmovable pieces.
-   */
-  const canMovePiece = (relativePos: number, diceVal: number): boolean => {
-    const numericPos = Number(relativePos);
-    if (numericPos === -1) {
-      return diceVal === 6; // Yard pieces can only leave yard on rolling a 6
+  // آماده‌سازی کل مهره‌های روی صفحه
+  const allRenderedPieces: { playerIdx: number; playerId: string; pieceIdx: number; pos: number; coord: GridCoord }[] = [];
+  players.forEach((player, playerIdx) => {
+    const playerPieces = pieces[player.id] || [];
+    for (let i = 0; i < pieces_count; i++) {
+      const pos = playerPieces[i] !== undefined ? playerPieces[i] : -1;
+      const coord = getGridCoordinates(playerIdx, pos, i);
+      allRenderedPieces.push({ playerIdx, playerId: player.id, pieceIdx: i, pos, coord });
     }
-    return numericPos + diceVal <= 44; // Path cannot overshoot the absolute goal target of 44
+  });
+
+  // تابع بررسی قابلیت حرکت مهره‌ها برای فعال‌سازی انیمیشن
+  const isPieceMovable = (pieceIdx: number): boolean => {
+    if (!isMyTurn || !gameState.dice_rolled) return false;
+    const myPieces = pieces[localPlayerId] || [];
+    const currentPos = myPieces[pieceIdx];
+
+    if (currentPos === -1 && gameState.dice !== 6) return false;
+    if (gameState.dice && currentPos !== -1 && currentPos + gameState.dice > 44) return false;
+
+    return true;
   };
 
-  /**
-   * Identifies the CSS color theme for each player based on their visual index.
-   * Visual Player 0 -> Red, 1 -> Blue, 2 -> Green, 3 -> Yellow.
-   */
-  const getPlayerColorClass = (visualIndex: number) => {
-    switch (visualIndex) {
-      case 0: return { bg: 'bg-red-500', text: 'text-red-500', border: 'border-red-500', glow: 'shadow-red-500/30' };
-      case 1: return { bg: 'bg-blue-500', text: 'text-blue-500', border: 'border-blue-500', glow: 'shadow-blue-500/30' };
-      case 2: return { bg: 'bg-emerald-500', text: 'text-emerald-500', border: 'border-emerald-500', glow: 'shadow-emerald-500/30' };
-      case 3: return { bg: 'bg-yellow-500', text: 'text-yellow-500', border: 'border-yellow-500', glow: 'shadow-yellow-500/30' };
-      default: return { bg: 'bg-slate-500', text: 'text-slate-500', border: 'border-slate-500', glow: 'shadow-slate-500/30' };
-    }
-  };
+  // رندر دایره‌های بزرگ پایگاه‌ها (Yards) مطابق تصویر
+  const renderBaseYard = (playerIdx: number) => {
+    const theme = playerColors[playerIdx];
+    const isPlayerActive = current_turn === playerIdx;
 
-  /**
-   * Renders the individual cells of the 11x11 board.
-   * Dynamically colors cells based on yards, tracks, and private home paths.
-   */
-  const renderBoardGrid = () => {
-    const cells = [];
-
-    for (let r = 0; r < 11; r++) {
-      for (let c = 0; c < 11; c++) {
-        let cellClass = 'bg-slate-900 border border-slate-800/40 rounded-lg';
-        
-        // Style Bases / Yards in the corners
-        if (r >= 0 && r <= 3 && c >= 0 && c <= 3) {
-          cellClass = 'bg-red-950/20 border border-red-900/30 rounded-2xl'; // Red Yard
-        } else if (r >= 0 && r <= 3 && c >= 7 && c <= 10) {
-          cellClass = 'bg-blue-950/20 border border-blue-900/30 rounded-2xl'; // Blue Yard
-        } else if (r >= 7 && r <= 10 && c >= 7 && c <= 10) {
-          cellClass = 'bg-emerald-950/20 border border-emerald-900/30 rounded-2xl'; // Green Yard
-        } else if (r >= 7 && r <= 10 && c >= 0 && c <= 3) {
-          cellClass = 'bg-yellow-950/20 border border-yellow-900/30 rounded-2xl'; // Yellow Yard
-        }
-
-        // Style the private home columns
-        else if (r === 5 && c >= 1 && c <= 4) {
-          cellClass = 'bg-red-500/20 border border-red-500/40 rounded-lg'; // Red Home Column
-        } else if (c === 5 && r >= 1 && r <= 4) {
-          cellClass = 'bg-blue-500/20 border border-blue-500/40 rounded-lg'; // Blue Home Column
-        } else if (r === 5 && c >= 6 && c <= 9) {
-          cellClass = 'bg-emerald-500/20 border border-emerald-500/40 rounded-lg'; // Green Home Column
-        } else if (c === 5 && r >= 7 && r <= 10) {
-          cellClass = 'bg-yellow-500/20 border border-yellow-500/40 rounded-lg'; // Yellow Home Column
-        }
-
-        // Style the center goal cell
-        else if (r === 5 && c === 5) {
-          cellClass = 'bg-gradient-to-tr from-indigo-600 to-violet-600 border border-indigo-400 rounded-xl shadow-lg animate-pulse';
-        }
-
-        // Highlight player entry starting spaces
-        const isRedStart = r === 4 && c === 0;
-        const isBlueStart = r === 0 && c === 6;
-        const isGreenStart = r === 6 && c === 10;
-        const isYellowStart = r === 10 && c === 4;
-
-        if (isRedStart) cellClass = 'bg-red-500/40 border border-red-500 rounded-lg';
-        if (isBlueStart) cellClass = 'bg-blue-500/40 border border-blue-500 rounded-lg';
-        if (isGreenStart) cellClass = 'bg-emerald-500/40 border border-emerald-500 rounded-lg';
-        if (isYellowStart) cellClass = 'bg-yellow-500/40 border border-yellow-500 rounded-lg';
-
-        // Detect if cell is part of the circular shared track (neutral space)
-        const isTrack = (r === 4 || r === 6) || (c === 4 || c === 6) || (r === 5 && (c === 0 || c === 10)) || (c === 5 && (r === 0 || r === 10));
-        const isNotSpecial = r !== 5 || (c === 0 || c === 10);
-        const isNotSpecialCol = c !== 5 || (r === 0 || r === 10);
-        
-        if (isTrack && isNotSpecial && isNotSpecialCol && !isRedStart && !isBlueStart && !isGreenStart && !isYellowStart) {
-          cellClass = 'bg-slate-800/80 border border-slate-750 rounded-lg';
-        }
-
-        cells.push(
-          <div
-            key={`${r}-${c}`}
-            className={`${cellClass} transition-all duration-300`}
-            style={{ gridRowStart: r + 1, gridColumnStart: c + 1 }}
-          />
-        );
-      }
-    }
-
-    return cells;
-  };
-
-  /**
-   * Gathers and renders all active player pieces on top of the 11x11 board.
-   */
-  const renderPieces = () => {
-    const rendered: React.ReactNode[] = [];
-
-    players.forEach((player, clientIdx) => {
-      const playerPieces = pieces[player.id];
-      if (!playerPieces) return;
-
-      const visualIdx = getVisualPlayerIndex(clientIdx, player_count);
-      const colorTheme = getPlayerColorClass(visualIdx);
-
-      playerPieces.forEach((relativePos, pieceIdx) => {
-        // Skip rendering pieces that have already reached the final goal 44
-        if (Number(relativePos) === 44) return;
-
-        // Fetch physical grid coordinates from our mapping utility
-        const { row, col } = getPieceCoordinates(clientIdx, pieceIdx, relativePos, player_count);
-
-        // Debug log to trace exact generated coordinates for each active piece
-        console.log(`RENDER PIECE: Player ${player.name} (${player.id}) - Piece ${pieceIdx} relative ${relativePos} maps to row ${row}, col ${col}`);
-
-        // Highlight local pieces only when they can actively and legally move based on the rolled dice
-        const isPieceSelectable = isMyTurn && dice_rolled && dice !== null && canMovePiece(relativePos, dice);
-
-        // Apply a small stack translation offset so pieces on the same cell do not overlap completely
-        const stackOffset = (pieceIdx - 1.5) * 3;
-
-        rendered.push(
-          <button
-            key={`${player.id}-${pieceIdx}`}
-            type="button"
-            disabled={!isPieceSelectable}
-            onClick={() => onMovePiece(pieceIdx)}
-            style={{
-              gridRowStart: row + 1,
-              gridColumnStart: col + 1,
-              transform: `translate(${stackOffset}px, ${stackOffset}px)`,
-              zIndex: isPieceSelectable ? 30 : 20
-            }}
-            className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center shadow-lg transition-all duration-300 relative self-center justify-self-center ${
-              colorTheme.bg
-            } ${
-              isPieceSelectable
-                ? 'cursor-pointer scale-125 ring-4 ring-indigo-500/50 animate-bounce'
-                : 'scale-100'
-            }`}
-          >
-            {/* Small inner dot to make Ludo pieces look premium */}
-            <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-          </button>
-        );
-      });
-    });
-
-    return rendered;
+    return (
+      <div 
+        className={`w-full h-full rounded-full ${theme.bg} border-2 ${isPlayerActive ? 'border-amber-400 animate-pulse' : 'border-slate-800/60'} flex items-center justify-center relative shadow-[inset_0_4px_8px_rgba(0,0,0,0.3),_0_4px_10px_rgba(0,0,0,0.15)] transition-all duration-300`}
+      >
+        {/* ۴ خانه داخلی پایگاه برای قرارگیری مهره‌ها */}
+        <div className="grid grid-cols-2 grid-rows-2 gap-2 p-2.5 w-4/5 h-4/5 bg-black/10 rounded-full">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div key={idx} className="w-full h-full rounded-full bg-black/35 border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]" />
+          ))}
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen p-4 bg-slate-950 text-slate-100 font-sans pb-12">
-      
-      {/* Top Header / Player Status list */}
-      <div className="w-full max-w-[450px] flex justify-between gap-2 mb-4">
-        {players.map((player, idx) => {
-          const visualIdx = getVisualPlayerIndex(idx, player_count);
-          const theme = getPlayerColorClass(visualIdx);
-          const isActive = idx === current_turn;
+    <div className="min-h-screen flex flex-col justify-between bg-[url('https://images.unsplash.com/photo-1541123437800-1bb1317bec14?q=80&w=600')] bg-cover bg-center select-none overflow-x-hidden font-sans relative pb-4">
+      {/* لایه تیره روی پس‌زمینه برای عمق دادن به چوب */}
+      <div className="absolute inset-0 bg-black/15 pointer-events-none z-0" />
 
-          return (
-            <div
-              key={player.id}
-              className={`flex-1 p-2 rounded-xl border flex flex-col items-center transition-all duration-300 ${
-                isActive
-                  ? 'bg-slate-900 border-indigo-500 shadow-lg shadow-indigo-500/10 scale-105'
-                  : 'bg-slate-900/40 border-slate-800'
-              }`}
+      {/* لوگوی LUDO بالای صفحه بر اساس تصویر */}
+      <header className="w-full pt-6 text-center z-10">
+        <h1 className="text-5xl font-extrabold tracking-widest drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] flex justify-center gap-1.5 font-serif select-none">
+          <span className="text-red-600">L</span>
+          <span className="text-blue-500">U</span>
+          <span className="text-yellow-400">D</span>
+          <span className="text-green-500">O</span>
+        </h1>
+      </header>
+
+      {/* کانتینر بورد بازی - کاملاً منطبق بر تصویر و Mobile-First با حاشیه‌های نرم */}
+      <main className="flex-1 flex items-center justify-center p-3 z-10 my-auto">
+        <div className="max-w-[430px] w-full aspect-square bg-slate-100 rounded-2xl p-2.5 shadow-[0_25px_60px_rgba(0,0,0,0.7)] border-4 border-stone-200/90 relative flex items-center justify-center">
+          
+          <div className="grid grid-cols-11 grid-rows-11 gap-0.5 w-full h-full relative">
+            
+            {/* حیاط‌های دایره‌ای بازیکنان */}
+            <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-0.5">{renderBaseYard(2)}</div> {/* سبز (بالا-چپ) */}
+            <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-0.5">{renderBaseYard(0)}</div> {/* قرمز (بالا-راست) */}
+            <div className="col-start-1 col-end-5 row-start-8 row-end-12 p-0.5">{renderBaseYard(3)}</div> {/* زرد (پایین-چپ) */}
+            <div className="col-start-8 col-end-12 row-start-8 row-end-12 p-0.5">{renderBaseYard(1)}</div> {/* آبی (پایین-راست) */}
+
+            {/* بستر پس‌زمینه خاکستری ملایم بورد تفکیکی طبق تصویر */}
+            <div className="absolute inset-0 bg-[#e5e5e5]/40 rounded-xl pointer-events-none -z-10" />
+
+            {/* رندر خانه‌ها با ظاهر دایره‌ای و بردارهای فلش جهت‌نما */}
+            {Array.from({ length: 11 }).map((_, rIdx) => {
+              return Array.from({ length: 11 }).map((_, cIdx) => {
+                if (rIdx < 4 && cIdx < 4) return null;
+                if (rIdx < 4 && cIdx >= 7) return null;
+                if (rIdx >= 7 && cIdx < 4) return null;
+                if (rIdx >= 7 && cIdx >= 7) return null;
+
+                // خانه وسط (GOAL) برای فرود آمدن تاس
+                if (rIdx === 5 && cIdx === 5) {
+                  return (
+                    <div 
+                      key={`cell-${rIdx}-${cIdx}`} 
+                      className="col-start-6 col-end-7 row-start-6 row-end-7 bg-slate-200/35 rounded-xl flex items-center justify-center relative"
+                    >
+                      <div className="w-full h-full rounded-full bg-slate-300/40 border border-slate-400/20" />
+                    </div>
+                  );
+                }
+
+                // پالت‌های هوم‌استرچ دایره‌ای رنگی (دایره‌های توپر بر خلاف حالت مستطیلی قبل)
+                let customBg = 'bg-white';
+                let isHomeStretch = false;
+                
+                if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-red-500'; isHomeStretch = true; }       // ستون امن قرمز
+                else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-blue-500'; isHomeStretch = true; }  // ستون امن آبی
+                else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-green-500'; isHomeStretch = true; } // ستون امن سبز
+                else if (cIdx === 5 && rIdx >= 6 && rIdx <= 9) { customBg = 'bg-yellow-500'; isHomeStretch = true; }// ستون امن زرد
+
+                // خانه‌های شروع حرکت رنگی (شروع‌های اختصاصی ۴ بازیکن)
+                if (rIdx === 0 && cIdx === 6) customBg = 'bg-red-500';
+                else if (rIdx === 6 && cIdx === 10) customBg = 'bg-blue-500';
+                else if (rIdx === 4 && cIdx === 0) customBg = 'bg-green-500';
+                else if (rIdx === 10 && cIdx === 4) customBg = 'bg-yellow-500';
+
+                const arrowRotation = getArrowRotation({ r: rIdx, c: cIdx });
+
+                return (
+                  <div
+                    key={`cell-${rIdx}-${cIdx}`}
+                    style={{ gridRowStart: rIdx + 1, gridColumnStart: cIdx + 1 }}
+                    className={`rounded-full border border-slate-400/70 shadow-[0_1px_3px_rgba(0,0,0,0.15)] flex items-center justify-center relative transition-all duration-300 ${customBg} aspect-square p-0.5`}
+                  >
+                    {!isHomeStretch && (
+                      <svg 
+                        className={`w-3/5 h-3/5 ${customBg === 'bg-white' ? 'text-slate-400/80' : 'text-white/90'} ${arrowRotation}`} 
+                        fill="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        {/* فلش‌های جهت‌نمای مثلثی توخالی بر اساس تصویر شما */}
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    )}
+                  </div>
+                );
+              });
+            })}
+
+            {/* تاس سه‌بعدی فوق‌العاده زیبا در خانه وسط زمین بر اساس تصویر */}
+            <div 
+              onClick={() => isMyTurn && !gameState.dice_rolled && onRollDice()}
+              className="absolute col-start-5 col-end-8 row-start-5 row-end-8 z-40 flex items-center justify-center cursor-pointer"
             >
-              <div className="relative">
-                <img
-                  src={player.avatar}
-                  alt={player.name}
-                  className="w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-700 object-cover"
-                />
-                {/* Active Turn Dot indicator */}
-                {isActive && (
-                  <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border border-slate-900 flex items-center justify-center text-[8px] font-black text-white ${theme.bg}`}>
-                    {turnTimeLeft}
-                  </span>
-                )}
-              </div>
-              <span className="text-xs font-bold text-slate-300 truncate w-full text-center mt-1">
-                {player.name}
+              <Dice 
+                value={gameState.dice} 
+                isRolling={gameState.dice_rolled} 
+              />
+            </div>
+
+            {/* مهره‌های بازی دایره‌ای با رندر اتمیک بر روی خانه‌ها */}
+            {allRenderedPieces.map(({ playerIdx, playerId: pId, pieceIdx, pos, coord }) => {
+              const theme = playerColors[playerIdx];
+              const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
+
+              const piecesInSameCoord = allRenderedPieces.filter(
+                (p) => p.coord.r === coord.r && p.coord.c === coord.c
+              );
+              const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
+                (p) => p.playerId === pId && p.pieceIdx === pieceIdx
+              );
+
+              const transformStyle = piecesInSameCoord.length > 1
+                ? {
+                    transform: `translate(${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 8}px, ${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * -8}px)`,
+                    zIndex: 20 + pieceIndexInSameCoord,
+                  }
+                : { zIndex: 10 };
+
+              return (
+                <div
+                  key={`piece-${pId}-${pieceIdx}`}
+                  style={{
+                    gridRowStart: coord.r + 1,
+                    gridColumnStart: coord.c + 1,
+                    ...transformStyle,
+                  }}
+                  onClick={() => isMovable && onMovePiece(pieceIdx)}
+                  className={`w-3/4 h-3/4 place-self-center rounded-full border-2 ${theme.piece} ${theme.pieceBorder} flex items-center justify-center shadow-lg transition-all duration-300 cursor-pointer ${
+                    isMovable ? 'animate-bounce border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.8)] z-30 scale-105' : ''
+                  }`}
+                >
+                  {/* نقطه فرو رفته مرکز مهره مطابق با عکس بازی شما */}
+                  <div className="w-1/3 h-1/4 rounded-full bg-white/40 shadow-inner" />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </main>
+
+      {/* فوتر چوبی پایین صفحه موبایل هماهنگ با تصویر تخته نرد و منچ */}
+      <footer className="w-full flex flex-col items-center gap-3 px-6 z-10">
+        
+        {/* ردیف ۴ دایره رنگی بازیکنان در بالای کنترلر */}
+        <div className="flex gap-2">
+          {Array.from({ length: 4 }).map((_, idx) => (
+            <div 
+              key={idx} 
+              className={`w-5.5 h-5.5 rounded-full border border-white/20 shadow-md ${
+                players[idx] ? playerColors[idx]?.piece : 'bg-slate-700/50'
+              } ${current_turn === idx ? 'scale-110 border-amber-400 ring-2 ring-amber-400/40' : ''}`}
+            />
+          ))}
+        </div>
+
+        {/* داک کنترلر شیشه‌ای مشکی پایین صفحه بر اساس تصویر */}
+        <div className="w-full max-w-[390px] flex justify-between items-center bg-black/60 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
+          
+          {/* بخش نام بازیکن فعال با هایلایت آبی رنگ */}
+          <div className="flex items-center gap-2">
+            <div className={`px-4 py-2 bg-slate-900/90 rounded-lg border-2 ${
+              isMyTurn ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-slate-800'
+            }`}>
+              <span className="text-sm font-bold text-slate-100">
+                {players[current_turn]?.name || `Player ${current_turn + 1}`}
               </span>
             </div>
-          );
-        })}
-      </div>
+          </div>
 
-      {/* Main Board Container */}
-      <div className="relative w-full max-w-[450px] aspect-square bg-slate-900/60 border border-slate-800 rounded-3xl p-3 shadow-2xl backdrop-blur-sm select-none">
-        <div className="grid grid-cols-11 grid-rows-11 w-full h-full gap-0.5">
-          {/* Layer 1: Render static board grids */}
-          {renderBoardGrid()}
-          
-          {/* Layer 2: Render overlapping player pieces */}
-          {renderPieces()}
+          {/* بخش دکمه پاوز و مقدار تاس عددی */}
+          <div className="flex items-center gap-4">
+            {/* نمایش عدد تاس */}
+            <div className="w-10 h-10 rounded-lg bg-slate-900/90 flex items-center justify-center border border-white/10 text-white font-extrabold text-lg">
+              {gameState.dice !== null ? gameState.dice : '-'}
+            </div>
+
+            {/* دکمه Pause دوخطی سفید مطابق با تصویر */}
+            <button 
+              onClick={onLeave}
+              className="w-10 h-10 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-white/10 active:scale-95 transition flex items-center justify-center gap-1"
+            >
+              <div className="w-1.5 h-4 bg-white rounded-full" />
+              <div className="w-1.5 h-4 bg-white rounded-full" />
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Footer Controls Block: Dice Integration */}
-      <div className="w-full max-w-[450px] mt-6 bg-slate-900/80 border border-slate-800 p-5 rounded-2xl flex items-center justify-around shadow-xl">
-        <Dice
-          value={dice}
-          canRoll={isMyTurn && !dice_rolled}
-          onRoll={onRollDice}
-        />
-
-        {/* Manual Reset/Exit actions */}
-        <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={onRestartGame}
-            className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-semibold tracking-wider transition-all duration-200"
-          >
-            RESTART MATCH
-          </button>
-          <button
-            type="button"
-            onClick={onLeave}
-            className="px-4 py-2 rounded-lg border border-red-500/20 hover:border-red-500/40 text-red-400 text-xs font-semibold tracking-wider transition-all duration-200"
-          >
-            LEAVE GAME
-          </button>
-        </div>
-      </div>
-
+      </footer>
     </div>
   );
 };
