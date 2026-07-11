@@ -22,9 +22,7 @@ export function App() {
     applyTheme(theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  
   // --- END: THEME MANAGEMENT LOGIC ---
 
   // Destructure flat properties directly from the websocket hook
@@ -88,12 +86,7 @@ export function App() {
   return (
     <div className="bg-backgroundPrimary text-textPrimary min-h-screen relative">
       {/* Optional: A global theme toggle button for easy access */}
-      <button 
-        onClick={toggleTheme} 
-        className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-secondary text-secondaryContent font-semibold shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
-      >
-        Toggle Theme
-      </button>
+      
       
       {/* Main content area */}
       {renderGameContent()}

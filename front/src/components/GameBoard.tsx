@@ -79,10 +79,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       {/* لوگوی LUDO بالای صفحه بر اساس تصویر */}
       <header className="w-full pt-6 text-center z-10">
         <h1 className="text-5xl font-extrabold tracking-widest drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] flex justify-center gap-1.5 font-serif select-none">
-          <span className="text-red-600">L</span>
-          <span className="text-blue-500">U</span>
-          <span className="text-yellow-400">D</span>
-          <span className="text-green-500">O</span>
+      <h1 dir="ltr" className="text-5xl font-extrabold tracking-widest drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] flex justify-center gap-1.5 font-serif select-none"></h1>   
+          <span className="text-orange-400">L</span>
+          <span className="text-orange-400">A</span>
+          <span className="text-orange-500">H</span>
+          <span className="text-orange-600">G</span>
+          <span className="text-orange-700">E</span>         
+          <span className="text-orange-700">T</span>
+          <span className="text-orange-600">R</span>
+          <span className="text-orange-500">O</span>
+          <span className="text-orange-400">P</span>
+
         </h1>
       </header>
 
