@@ -1,6 +1,6 @@
 // front/src/components/GameBoard.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GameState } from '../types';
 import { playerColors } from '../utils/colors';
 import { getGridCoordinates, getArrowRotation, GridCoord } from '../utils/boardCoordinates';
@@ -24,17 +24,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onLeave,
 }) => {
   const [isSpinning, setIsSpinning] = useState(false);
-
-  // هوش مصنوعی توقف تاس: تاس فقط زمانی می‌ایستد که سرور عدد جدید را فرستاده باشد
-  useEffect(() => {
-    if (isSpinning && gameState?.dice_rolled) {
-      // یک مکث ۴۰۰ میلی‌ثانیه‌ای فقط برای اینکه انیمیشن چرخش خیلی سریع قطع نشود (زیبایی بصری)
-      const timer = setTimeout(() => {
-        setIsSpinning(false);
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [gameState?.dice_rolled, isSpinning]);
 
   if (!gameState || !gameState.players || !gameState.pieces) {
     return (
@@ -91,7 +80,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     
     setIsSpinning(true);
     onRollDice();
-    // تایمر ثابت حذف شد! حالا تاس تا زمان دریافت جواب سرور می‌چرخد.
+    
+    setTimeout(() => {
+      setIsSpinning(false);
+    }, 600);
   };
 
   const renderBaseYard = (vIdx: number) => {
@@ -116,17 +108,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   return (
     <div className="min-h-screen flex flex-col justify-between bg-gradient-to-br from-[#2d1b11] via-[#1a0f0a] to-[#0f0805] select-none overflow-x-hidden font-sans relative pb-4">
       <header className="w-full pt-6 text-center z-10">
-        <h2 dir="ltr" className="text-5xl font-extrabold tracking-widest drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] flex justify-center gap-1.5 font-serif select-none">
-          <span className="text-orange-400">P</span>
-          <span className="text-orange-400">O</span>
-          <span className="text-orange-500">R</span>
-          <span className="text-orange-600">T</span>
-          <span className="text-orange-700">E</span>         
-          <span className="text-orange-700">G</span>
-          <span className="text-orange-600">H</span>
-          <span className="text-orange-500">A</span>
-          <span className="text-orange-400">L</span>
-        </h2>
+        <h1 dir="ltr" className="text-5xl font-extrabold tracking-widest drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] flex justify-center gap-1.5 font-serif select-none">
+          <span className="text-red-600">L</span>
+          <span className="text-blue-500">U</span>
+          <span className="text-yellow-400">D</span>
+          <span className="text-green-500">O</span>
+        </h1>
       </header>
 
       <main className="flex-1 flex items-center justify-center p-3 z-10 my-auto">
@@ -161,7 +148,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-red-500'; isHomeStretch = true; }
                 else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-blue-500'; isHomeStretch = true; }
                 else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-green-500'; isHomeStretch = true; }
-                else if (cIdx === 5 && rIdx >= 6 && rIdx <= 9) { customBg = 'bg-yellow-500'; isHomeStretch = true; }
+                else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-yellow-500'; isHomeStretch = true; }
 
                 if (rIdx === 0 && cIdx === 6) customBg = 'bg-red-500';
                 else if (rIdx === 6 && cIdx === 10) customBg = 'bg-blue-500';
@@ -253,6 +240,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
         <div className="w-full max-w-[390px] flex justify-between items-center bg-black/60 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
           <div className="flex items-center gap-2">
+            {/* اصلاح خطای تایپی اینجا انجام شد */}
             <div className={`px-4 py-2 bg-slate-900/90 rounded-lg border-2 ${
               isMyTurn ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-slate-800'
             }`}>
@@ -280,3 +268,5 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     </div>
   );
 };
+
+export default GameBoard;

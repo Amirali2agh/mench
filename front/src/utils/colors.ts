@@ -9,8 +9,9 @@ export interface ColorTheme {
   homeStrip: string;
 }
 
+// پالت رنگ‌های ۴ بازیکن منچ برای مهره‌ها و پایگاه‌ها بر اساس تم ارسالی شما
 export const playerColors: Record<number, ColorTheme> = {
-  0: {
+  0: { // قرمز
     primary: 'text-red-600 bg-red-600',
     bg: 'bg-red-500',
     piece: 'bg-red-600',
@@ -18,7 +19,7 @@ export const playerColors: Record<number, ColorTheme> = {
     accent: 'bg-red-100',
     homeStrip: 'bg-red-600/20'
   },
-  1: {
+  1: { // آبی
     primary: 'text-blue-600 bg-blue-600',
     bg: 'bg-blue-500',
     piece: 'bg-blue-600',
@@ -26,7 +27,7 @@ export const playerColors: Record<number, ColorTheme> = {
     accent: 'bg-blue-100',
     homeStrip: 'bg-blue-600/20'
   },
-  2: {
+  2: { // سبز
     primary: 'text-green-600 bg-green-600',
     bg: 'bg-green-500',
     piece: 'bg-green-600',
@@ -34,7 +35,7 @@ export const playerColors: Record<number, ColorTheme> = {
     accent: 'bg-green-100',
     homeStrip: 'bg-green-600/20'
   },
-  3: {
+  3: { // زرد
     primary: 'text-yellow-500 bg-yellow-500',
     bg: 'bg-yellow-400',
     piece: 'bg-yellow-500',
@@ -44,5 +45,5 @@ export const playerColors: Record<number, ColorTheme> = {
   }
 };
 
-// خروجی پیش‌فرض برای حل مشکل ایمپورت در theme.ts
+// خروجی به صورت پیش‌فرض جهت هماهنگی با پروژه‌تان
 export default playerColors;

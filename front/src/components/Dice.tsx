@@ -8,9 +8,9 @@ export interface DiceProps {
 }
 
 const Dice: React.FC<DiceProps> = ({ value, isRolling }) => {
-  const displayValue = value || 1;
+  // اگر مقدار تاس null باشد، نمایشگر خنثی داریم
+  const displayValue = value !== null ? value : 1;
 
-  // با حذف displayValue از وابستگی‌ها، تاس بعد از ایستادن دیگر لرزش یا پرش نخواهد داشت
   const randomTilt = useMemo(() => {
     if (isRolling) return '';
     const rotateZ = Math.floor(Math.random() * 20) - 10; 
@@ -20,6 +20,15 @@ const Dice: React.FC<DiceProps> = ({ value, isRolling }) => {
   }, [isRolling]); 
 
   const renderPips = (faceValue: number) => {
+    // اگر مقدار تاس null باشد (در حال انتظار برای تاس جدید یا بعد از جایزه ۶)، چهره خنثی نمایش داده می‌شود
+    if (value === null) {
+      return (
+        <div className="h-full w-full bg-gradient-to-br from-white via-stone-50 to-stone-200 rounded-lg border border-stone-300/60 shadow-inner flex items-center justify-center">
+          <div className="w-1.5 h-1.5 rounded-full bg-stone-300" />
+        </div>
+      );
+    }
+
     const pipPositions: Record<number, number[]> = {
       1: [4],
       2: [0, 8],
@@ -45,6 +54,7 @@ const Dice: React.FC<DiceProps> = ({ value, isRolling }) => {
   };
 
   const getLandedTransform = (val: number) => {
+    if (value === null) return 'rotateX(0deg) rotateY(0deg)';
     switch (val) {
       case 1: return 'rotateX(0deg) rotateY(0deg)';
       case 6: return 'rotateX(0deg) rotateY(180deg)';
