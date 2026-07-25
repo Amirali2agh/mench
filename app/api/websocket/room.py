@@ -3,6 +3,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 from app.managers.room_manager import room_manager
 from app.services.game_service import GameService
 from app.redis_client import redis_client
+from app.services.prize_service import report_winner, update_room_status
 
 router = APIRouter()
 
@@ -102,7 +103,7 @@ async def websocket_room_endpoint(
                             "message": "piece_index is required for move_piece action"
                         })
                         continue
-                        
+                    
                     # Safe cast to prevent ValueError crash from unparsable string indices
                     try:
                         parsed_index = int(piece_index)
@@ -118,6 +119,28 @@ async def websocket_room_endpoint(
                         "type": "sync_state",
                         "game": state
                     })
+
+                    # Porteghal integration: report winner + update room status
+                    if state.get("status") == "finished" and state.get("winner_id"):
+                        try:
+                            meta_key = f"room:{room_id}:meta"
+                            raw = await redis_client.get(meta_key)
+                            if raw:
+                                meta = __import__("json").loads(raw)
+                                winner_player_num = next(
+                                    (num for num, mp in meta.get("players_meta", {}).items()
+                                     if mp.get("id") == state["winner_id"]),
+                                    None
+                                )
+                                if winner_player_num:
+                                    await report_winner(
+                                        room_id=room_id,
+                                        player_id=state["winner_id"],
+                                        win_type="normal",
+                                    )
+                                await update_room_status(room_id=room_id, status="finished")
+                        except Exception as e:
+                            print(f"⚠️ Prize service error: {e}")
                     
                 # Action 3: Reset pieces for next round but keep session/players intact
                 elif action == "next_round":
