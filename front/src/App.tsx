@@ -1,9 +1,8 @@
 /**
- * @file src/App.tsx
- * @description Root application component.
+ * Root application component.
  * Integrates theme management with game state routing (Lobby, Queue, Board).
+ * Supports direct room mode for porteghal-app WebView integration.
  */
-
 import { useEffect, useState } from 'react';
 import { useMenschSocket } from './hooks/useMenschSocket';
 import { LobbyScreen } from './components/LobbyScreen';
@@ -12,20 +11,17 @@ import { GameBoard } from './components/GameBoard';
 import { DisconnectOverlay } from './components/DisconnectOverlay';
 import { GameOverModal } from './components/GameOverModal';
 import { applyTheme, ThemeMode } from './utils/theme';
+import { getQueryParams } from './utils/bridge';
 
 export function App() {
-  // --- START: THEME MANAGEMENT LOGIC ---
-  const [theme, setTheme] = useState<ThemeMode>('dark'); // Default to dark mode
+  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const queryParams = getQueryParams();
+  const isDirectMode = !!queryParams.roomId;
 
-  // Apply the selected theme automatically on mount and when theme state changes
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
 
-  
-  // --- END: THEME MANAGEMENT LOGIC ---
-
-  // Destructure flat properties directly from the websocket hook
   const {
     playerId,
     playerName,
@@ -39,11 +35,9 @@ export function App() {
     movePiece,
     nextRound,
     restartGame,
-    leaveGame
+    leaveGame,
   } = useMenschSocket();
 
-  // --- START: MAIN GAME RENDER LOGIC ---
- // --- START: MAIN GAME RENDER LOGIC ---
   const renderGameContent = () => {
     // If we have an active game state, render the board
     if (gameState) {
@@ -58,54 +52,57 @@ export function App() {
         />
       );
     }
-    
-    // Cast connectionState to string to bypass strict TypeScript TS2367 no-overlap warning
+
     const stateStr = connectionState as string;
+
+    // Direct room mode: show loading while connecting
+    if (isDirectMode && (stateStr === 'connecting_room' || stateStr === 'connecting_queue')) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-backgroundPrimary">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-textSecondary text-sm font-semibold">در حال اتصال به بازی...</p>
+          </div>
+        </div>
+      );
+    }
+
     const inQueue = stateStr === 'connecting_queue' || stateStr === 'queue_waiting';
-    
     if (inQueue) {
       return (
-        <QueueScreen 
-          playerName={playerName} 
-          playerAvatar={playerAvatar} 
-          onLeaveQueue={leaveGame} 
+        <QueueScreen
+          playerName={playerName}
+          playerAvatar={playerAvatar}
+          onLeaveQueue={leaveGame}
         />
       );
     }
 
-    // Default to the lobby screen to register and select game options
+    // Default to lobby screen
     return (
-      <LobbyScreen 
-        onJoinQueue={joinQueue} 
-        isConnecting={stateStr === 'connecting_queue'} 
+      <LobbyScreen
+        onJoinQueue={joinQueue}
+        isConnecting={stateStr === 'connecting_queue'}
       />
     );
   };
-  // --- END: MAIN GAME RENDER LOGIC ---
 
   return (
     <div className="bg-backgroundPrimary text-textPrimary min-h-screen relative">
-      {/* Optional: A global theme toggle button for easy access */}
-      
-      
-      {/* Main content area */}
       {renderGameContent()}
-      
-      {/* Global connection error toast overlay for the local player */}
+
       {error && (
         <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-xl bg-rose-500/20 border border-rose-500 text-rose-300 text-xs font-semibold shadow-lg shadow-rose-500/10 backdrop-blur-md animate-fade-in">
           {error}
         </div>
       )}
 
-      {/* Opponent forfeit overlay timer triggered when any active player disconnects */}
-      <DisconnectOverlay 
+      <DisconnectOverlay
         isOpen={!!disconnectedPlayer}
         playerName={disconnectedPlayer?.name || ''}
         timeLeft={disconnectedPlayer?.timeLeft || 60}
       />
 
-      {/* Game Over modal overlay triggered when status changes to finished */}
       {gameState?.status === 'finished' && (
         <GameOverModal
           isOpen={gameState.status === 'finished'}
