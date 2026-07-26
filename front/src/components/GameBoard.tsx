@@ -103,8 +103,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     if (!isMyTurn || isSpinning || gameState.dice_rolled) return;
     setIsSpinning(true);
     onRollDice();
-    setTimeout(() => { setIsSpinning(false); }, 600);
   };
+
+  // Stop spinning when the WebSocket confirms the roll result
+  useEffect(() => {
+    if (isSpinning && gameState.dice !== null) {
+      // Minimum spin time for visual effect
+      const timer = setTimeout(() => setIsSpinning(false), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [isSpinning, gameState.dice]);
 
   const getColorForVisualIdx = (vIdx: number): string => {
     const map: Record<number, string> = {
