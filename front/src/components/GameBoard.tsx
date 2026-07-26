@@ -158,7 +158,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 {slotTaken && (
                   <div
                     onClick={() => isMovablePiece && onMovePiece(idx)}
-                    className={`w-[88%] h-[88%] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center relative ${
+                    className={`w-[80%] h-[80%] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center relative ${
                       isMovablePiece ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-1 ring-offset-transparent z-30 scale-105' : ''
                     }`}
                   >
