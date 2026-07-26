@@ -29,6 +29,7 @@ export function App() {
     connectionState,
     gameState,
     disconnectedPlayer,
+    chatMessages,
     error,
     joinQueue,
     rollDice,
@@ -36,6 +37,7 @@ export function App() {
     nextRound,
     restartGame,
     leaveGame,
+    sendChatMessage,
   } = useMenschSocket();
 
   const renderGameContent = () => {
@@ -48,6 +50,8 @@ export function App() {
           onRollDice={rollDice}
           onMovePiece={movePiece}
           onLeave={leaveGame}
+          chatMessages={chatMessages}
+          onSendChat={sendChatMessage}
         />
       );
     }

@@ -1,11 +1,12 @@
 // front/src/components/GameBoard.tsx
 // Complete visual redesign matching the reference Ludo game UI
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GameState } from '../types';
 import { playerColors } from '../utils/colors';
 import { getGridCoordinates, getArrowRotation, GridCoord, safeTrackPositions, circularTrack } from '../utils/boardCoordinates';
 import Dice from './Dice';
+import type { ChatMessage } from '../hooks/useMenschSocket';
 
 interface GameBoardProps {
   gameState: GameState;
@@ -13,6 +14,8 @@ interface GameBoardProps {
   onRollDice: () => void;
   onMovePiece: (pieceIndex: number) => void;
   onLeave: () => void;
+  chatMessages: ChatMessage[];
+  onSendChat: (text: string) => void;
 }
 
 const PlayerAvatar: React.FC<{ name: string; avatar?: string }> = ({ name, avatar }) => {
@@ -53,8 +56,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onRollDice,
   onMovePiece,
   onLeave,
+  chatMessages,
+  onSendChat,
 }) => {
   const [isSpinning, setIsSpinning] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat to bottom on new messages
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
   if (!gameState || !gameState.players || !gameState.pieces) {
     return (
@@ -453,6 +465,20 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
       {/* ═══ CHAT BAR ═══ */}
       <footer className="px-3 pb-[clamp(4px,1vh,8px)] pt-1">
+        {/* Chat messages */}
+        {chatMessages.length > 0 && (
+          <div className="mx-1 mb-1 max-h-[clamp(60px,8vh,100px)] overflow-y-auto rounded-xl bg-white/80 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.04)] px-3 py-2 space-y-1 scrollbar-thin">
+            {chatMessages.map((msg, i) => (
+              <div key={i} className="flex items-start gap-1.5 text-[11px] leading-tight">
+                <span className={`font-bold whitespace-nowrap ${msg.player_id === localPlayerId ? 'text-amber-600' : 'text-slate-600'}`}>
+                  {msg.player_name}:
+                </span>
+                <span className="text-slate-700 break-words min-w-0">{msg.message}</span>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </div>
+        )}
         <div className="flex items-center gap-2 bg-white rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.05)] px-4 py-[10px] mx-1">
           <button className="flex-shrink-0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C5C5C" strokeWidth="1.5" strokeLinecap="round">
@@ -462,18 +488,35 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               <line x1="15" y1="9" x2="15.01" y2="9" />
             </svg>
           </button>
-          <input
-            type="text"
-            placeholder="پیام خود را بنویسید..."
-            className="flex-1 bg-transparent text-[14px] text-[#2C2C2C] placeholder-[#9C9C9C] outline-none text-right"
-            readOnly
-          />
-          <button className="flex-shrink-0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C17D3C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const trimmed = chatInput.trim();
+              if (trimmed) {
+                onSendChat(trimmed);
+                setChatInput('');
+              }
+            }}
+            className="flex-1 flex items-center gap-2"
+          >
+            <input
+              type="text"
+              placeholder="پیام خود را بنویسید..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              className="flex-1 bg-transparent text-[14px] text-[#2C2C2C] placeholder-[#9C9C9C] outline-none text-right"
+            />
+            <button
+              type="submit"
+              disabled={!chatInput.trim()}
+              className="flex-shrink-0 disabled:opacity-30 transition-opacity"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C17D3C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </form>
         </div>
       </footer>
 

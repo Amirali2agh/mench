@@ -161,6 +161,18 @@ async def websocket_room_endpoint(
                             "type": "sync_state",
                             "game": state
                         })
+                
+                # Action 5: Chat message
+                elif action == "chat":
+                    chat_text = message.get("message", "").strip()
+                    sender_name = message.get("playerName", playerName)
+                    if chat_text:
+                        await room_manager.broadcast(room_id, {
+                            "type": "chat",
+                            "player_id": playerId,
+                            "player_name": sender_name,
+                            "message": chat_text,
+                        })
                         
             except json.JSONDecodeError:
                 # Handle malformed client JSON without dropping the connection

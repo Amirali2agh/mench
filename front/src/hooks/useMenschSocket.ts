@@ -22,6 +22,13 @@ export interface DisconnectedPlayerInfo {
   timeLeft: number;
 }
 
+export interface ChatMessage {
+  player_id: string;
+  player_name: string;
+  message: string;
+  timestamp: number;
+}
+
 export function useMenschSocket() {
   const queryParams = getQueryParams();
   const directRoomId = queryParams.roomId || null;
@@ -36,6 +43,7 @@ export function useMenschSocket() {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<DisconnectedPlayerInfo | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const queueSocketRef = useRef<WebSocket | null>(null);
   const roomSocketRef = useRef<WebSocket | null>(null);
@@ -99,6 +107,14 @@ export function useMenschSocket() {
           setDisconnectedPlayer({ id: targetId, name: targetName, timeLeft: 60 });
         } else if (message.type === 'player_reconnected') {
           setDisconnectedPlayer(null);
+        } else if (message.type === 'chat') {
+          const chatMsg: ChatMessage = {
+            player_id: message.player_id,
+            player_name: message.player_name || 'کاربر',
+            message: message.message,
+            timestamp: Date.now(),
+          };
+          setChatMessages((prev) => [...prev, chatMsg]);
         }
       } catch (err) {
         console.error('Failed to parse room WebSocket message:', err);
@@ -196,8 +212,19 @@ export function useMenschSocket() {
     setGameState(null);
     setConnectionState('idle');
     setDisconnectedPlayer(null);
+    setChatMessages([]);
     sendToParent('GAME_FINISHED', { reason: 'player_left' });
   }, [disconnectAll]);
+
+  const sendChatMessage = useCallback((text: string) => {
+    if (roomSocketRef.current && roomSocketRef.current.readyState === WebSocket.OPEN) {
+      roomSocketRef.current.send(JSON.stringify({
+        action: 'chat',
+        message: text,
+        playerName: playerName,
+      }));
+    }
+  }, [playerName]);
 
   // Handle local countdown timer when an opponent is disconnected
   useEffect(() => {
@@ -222,6 +249,7 @@ export function useMenschSocket() {
     connectionState,
     gameState,
     disconnectedPlayer,
+    chatMessages,
     error,
     joinQueue,
     rollDice,
@@ -229,6 +257,7 @@ export function useMenschSocket() {
     nextRound,
     restartGame,
     leaveGame,
+    sendChatMessage,
     directRoomId,
   };
 }
