@@ -90,13 +90,13 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         <h2 className={`text-4xl font-black tracking-widest mb-2 ${
           isLocalWinner ? 'text-amber-500 animate-pulse' : 'text-rose-500'
         }`}>
-          {isLocalWinner ? 'VICTORY' : 'DEFEAT'}
+          {isLocalWinner ? 'پیروزی' : 'شکست'}
         </h2>
         
         <p className="text-sm text-slate-400 mb-6">
           {isLocalWinner 
-            ? 'Congratulations! You dominated the board.' 
-            : 'An opponent took the crown. Try again!'}
+            ? 'تبریک! شما برنده شدید.' 
+            : 'حریف شما برنده شد. دوباره تلاش کنید!'}
         </p>
 
         {/* Winner Profile Presentation (Supports Unicode/Persian Nicknames perfectly) */}
@@ -108,7 +108,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
               className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 object-cover"
             />
             <div className="text-right">
-              <span className="block text-[10px] uppercase tracking-widest text-slate-500">Winner</span>
+              <span className="block text-[10px] uppercase tracking-widest text-slate-500">برنده</span>
               <span className="block text-base font-bold text-white truncate max-w-[160px]">
                 {winner.name}
               </span>
@@ -124,7 +124,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             onClick={onNextRound}
             className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-sm tracking-wider shadow-lg hover:shadow-emerald-500/15 transition-all duration-200 active:scale-[0.98]"
           >
-            NEXT ROUND
+            دور بعد
           </button>
 
           {/* Hard Restart Button - Secondary Action */}
@@ -133,7 +133,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             onClick={onRestartGame}
             className="w-full py-3 rounded-xl border border-slate-700 text-slate-300 font-semibold text-sm hover:bg-slate-800 hover:text-white transition-all duration-200 active:scale-[0.98]"
           >
-            RESTART MATCH
+            شروع مجدد
           </button>
 
           {/* Leave Button - Neutral/Exit Action */}
@@ -142,7 +142,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             onClick={onLeave}
             className="w-full py-3 rounded-xl text-rose-400 font-semibold text-xs hover:bg-rose-500/10 transition-all duration-200 mt-2"
           >
-            LEAVE LOBBY
+            خروج
           </button>
         </div>
 

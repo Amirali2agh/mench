@@ -11,7 +11,6 @@ interface GameBoardProps {
   localPlayerId: string;
   onRollDice: () => void;
   onMovePiece: (pieceIndex: number) => void;
-  onRestartGame: () => void;
   onLeave: () => void;
 }
 
@@ -20,14 +19,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   localPlayerId,
   onRollDice,
   onMovePiece,
-  onRestartGame,
   onLeave,
 }) => {
   const [isSpinning, setIsSpinning] = useState(false);
 
   if (!gameState || !gameState.players || !gameState.pieces) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-amber-500"></div>
       </div>
     );
@@ -96,7 +94,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
     return (
       <div className={`w-full h-full rounded-full ${theme.bg} border-2 ${isPlayerActive ? 'border-amber-400 animate-pulse' : 'border-slate-800/60'} ${!isOwned ? 'opacity-30 grayscale' : ''} flex items-center justify-center relative shadow-[inset_0_4px_8px_rgba(0,0,0,0.3)] transition-all duration-300`}>
-        <div className="grid grid-cols-2 grid-rows-2 gap-2 p-2.5 w-4/5 h-4/5 bg-black/10 rounded-full">
+        <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(2px,0.5vmin,6px)] p-[clamp(4px,1vmin,10px)] w-4/5 h-4/5 bg-black/10 rounded-full">
           {Array.from({ length: 4 }).map((_, idx) => (
             <div key={idx} className="w-full h-full rounded-full bg-black/35 border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]" />
           ))}
@@ -106,165 +104,147 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-gradient-to-br from-[#2d1b11] via-[#1a0f0a] to-[#0f0805] select-none overflow-x-hidden font-sans relative pb-4">
-      <header className="w-full pt-6 text-center z-10">
-        <h1 dir="ltr" className="text-5xl font-extrabold tracking-widest drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] flex justify-center gap-1.5 font-serif select-none">
-          <span className="text-red-600">L</span>
-          <span className="text-blue-500">U</span>
-          <span className="text-yellow-400">D</span>
-          <span className="text-green-500">O</span>
-        </h1>
-      </header>
+    <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#2d1b11] via-[#1a0f0a] to-[#0f0805] select-none font-sans">
+      <div className="relative w-[min(92vw,92vh)] aspect-square max-w-[500px] bg-slate-100 rounded-[clamp(8px,2vmin,16px)] p-[1.5vmin] shadow-[0_25px_60px_rgba(0,0,0,0.7)] border-[clamp(2px,0.5vmin,4px)] border-stone-200/90 flex items-center justify-center">
+        
+        {/* Current player name label - top center */}
+        <div className="absolute top-[-6px] left-1/2 -translate-x-1/2 z-40 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white whitespace-nowrap leading-tight">
+          {players[current_turn]?.name || `بازیکن ${current_turn + 1}`}
+        </div>
 
-      <main className="flex-1 flex items-center justify-center p-3 z-10 my-auto">
-        <div className="max-w-[430px] w-full aspect-square bg-slate-100 rounded-2xl p-2.5 shadow-[0_25px_60px_rgba(0,0,0,0.7)] border-4 border-stone-200/90 relative flex items-center justify-center">
-          <div className="grid grid-cols-11 grid-rows-11 gap-0.5 w-full h-full relative">
-            
-            <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-0.5">{renderBaseYard(2)}</div>
-            <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-0.5">{renderBaseYard(0)}</div>
-            <div className="col-start-1 col-end-5 row-start-8 row-end-12 p-0.5">{renderBaseYard(3)}</div>
-            <div className="col-start-8 col-end-12 row-start-8 row-end-12 p-0.5">{renderBaseYard(1)}</div>
+        {/* Leave button - top right */}
+        <button
+          onClick={onLeave}
+          className="absolute top-[-8px] right-[-8px] w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center z-50 active:scale-90 hover:bg-black/80 transition-all"
+          title="خروج از بازی"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
 
-            <div className="absolute inset-0 bg-[#e5e5e5]/40 rounded-xl pointer-events-none -z-10" />
+        {/* 11x11 board grid */}
+        <div className="grid grid-cols-11 grid-rows-11 gap-[0.4vmin] w-full h-full relative">
+          
+          {renderBaseYard(2) ? <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(2)}</div> : null}
+          {renderBaseYard(0) ? <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(0)}</div> : null}
+          {renderBaseYard(3) ? <div className="col-start-1 col-end-5 row-start-8 row-end-12 p-[0.3vmin]">{renderBaseYard(3)}</div> : null}
+          {renderBaseYard(1) ? <div className="col-start-8 col-end-12 row-start-8 row-end-12 p-[0.3vmin]">{renderBaseYard(1)}</div> : null}
 
-            {Array.from({ length: 11 }).map((_, rIdx) => {
-              return Array.from({ length: 11 }).map((_, cIdx) => {
-                if (rIdx < 4 && cIdx < 4) return null;
-                if (rIdx < 4 && cIdx >= 7) return null;
-                if (rIdx >= 7 && cIdx < 4) return null;
-                if (rIdx >= 7 && cIdx >= 7) return null;
+          <div className="absolute inset-0 bg-[#e5e5e5]/40 rounded-xl pointer-events-none -z-10" />
 
-                if (rIdx === 5 && cIdx === 5) {
-                  return (
-                    <div key={`cell-${rIdx}-${cIdx}`} className="col-start-6 col-end-7 row-start-6 row-end-7 bg-slate-200/35 rounded-xl flex items-center justify-center relative">
-                      <div className="w-full h-full rounded-full bg-slate-300/40 border border-slate-400/20" />
-                    </div>
-                  );
-                }
+          {Array.from({ length: 11 }).map((_, rIdx) => {
+            return Array.from({ length: 11 }).map((_, cIdx) => {
+              if (rIdx < 4 && cIdx < 4) return null;
+              if (rIdx < 4 && cIdx >= 7) return null;
+              if (rIdx >= 7 && cIdx < 4) return null;
+              if (rIdx >= 7 && cIdx >= 7) return null;
 
-                let customBg = 'bg-white';
-                let isHomeStretch = false;
-                
-                if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-red-500'; isHomeStretch = true; }
-                else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-blue-500'; isHomeStretch = true; }
-                else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-green-500'; isHomeStretch = true; }
-                else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-yellow-500'; isHomeStretch = true; }
-
-                if (rIdx === 0 && cIdx === 6) customBg = 'bg-red-500';
-                else if (rIdx === 6 && cIdx === 10) customBg = 'bg-blue-500';
-                else if (rIdx === 4 && cIdx === 0) customBg = 'bg-green-500';
-                else if (rIdx === 10 && cIdx === 4) customBg = 'bg-yellow-500';
-
-                const arrowRotation = getArrowRotation({ r: rIdx, c: cIdx });
-
+              if (rIdx === 5 && cIdx === 5) {
                 return (
-                  <div
-                    key={`cell-${rIdx}-${cIdx}`}
-                    style={{ gridRowStart: rIdx + 1, gridColumnStart: cIdx + 1 }}
-                    className={`rounded-full border border-slate-400/70 shadow-[0_1px_3px_rgba(0,0,0,0.15)] flex items-center justify-center relative transition-all duration-300 ${customBg} aspect-square p-0.5`}
-                  >
-                    {!isHomeStretch && (
-                      <svg className={`w-3/5 h-3/5 ${customBg === 'bg-white' ? 'text-slate-400/80' : 'text-white/90'} ${arrowRotation}`} fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
+                  <div key={`cell-${rIdx}-${cIdx}`} className="col-start-6 col-end-7 row-start-6 row-end-7 bg-slate-200/35 rounded-xl flex items-center justify-center relative">
+                    <div className="w-full h-full rounded-full bg-slate-300/40 border border-slate-400/20" />
                   </div>
                 );
-              });
-            })}
+              }
 
-            <div 
-              onClick={handleDiceClick}
-              className={`col-start-6 col-end-7 row-start-6 row-end-7 z-40 place-self-center flex items-center justify-center transition-all duration-300 ${
-                isMyTurn && !gameState.dice_rolled && !isSpinning ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
-              }`}
-            >
-              <Dice value={gameState.dice} isRolling={isSpinning} />
-            </div>
-
-            {allRenderedPieces.map(({ vIdx, playerId: pId, pieceIdx, pos, coord }) => {
-              const theme = playerColors[vIdx];
-              if (!theme) return null;
+              let customBg = 'bg-white';
+              let isHomeStretch = false;
               
-              const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
+              if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-red-500'; isHomeStretch = true; }
+              else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-blue-500'; isHomeStretch = true; }
+              else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-green-500'; isHomeStretch = true; }
+              else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-yellow-500'; isHomeStretch = true; }
 
-              const piecesInSameCoord = allRenderedPieces.filter(
-                (p) => p.coord.r === coord.r && p.coord.c === coord.c
-              );
-              const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
-                (p) => p.playerId === pId && p.pieceIdx === pieceIdx
-              );
+              if (rIdx === 0 && cIdx === 6) customBg = 'bg-red-500';
+              else if (rIdx === 6 && cIdx === 10) customBg = 'bg-blue-500';
+              else if (rIdx === 4 && cIdx === 0) customBg = 'bg-green-500';
+              else if (rIdx === 10 && cIdx === 4) customBg = 'bg-yellow-500';
 
-              const transformStyle = piecesInSameCoord.length > 1
-                ? {
-                    transform: `translate(${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 6}px, ${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * -6}px)`,
-                    zIndex: 20 + pieceIndexInSameCoord,
-                  }
-                : { zIndex: 10 };
+              const arrowRotation = getArrowRotation({ r: rIdx, c: cIdx });
 
               return (
                 <div
-                  key={`piece-${pId}-${pieceIdx}`}
-                  style={{
-                    gridRowStart: coord.r + 1,
-                    gridColumnStart: coord.c + 1,
-                    ...transformStyle,
-                  }}
-                  onClick={() => isMovable && onMovePiece(pieceIdx)}
-                  className={`w-[90%] h-[90%] place-self-center rounded-full border-2 ${theme.piece} ${theme.pieceBorder} flex items-center justify-center shadow-md transition-all duration-300 ${
-                    isMovable ? 'cursor-pointer animate-bounce border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.8)] z-30 scale-105' : ''
-                  }`}
+                  key={`cell-${rIdx}-${cIdx}`}
+                  style={{ gridRowStart: rIdx + 1, gridColumnStart: cIdx + 1 }}
+                  className={`rounded-full border border-slate-400/70 shadow-[0_1px_3px_rgba(0,0,0,0.15)] flex items-center justify-center relative transition-all duration-300 ${customBg} aspect-square p-[0.2vmin]`}
                 >
-                  <div className="w-1/3 h-1/4 rounded-full bg-white/40 shadow-inner" />
+                  {!isHomeStretch && (
+                    <svg className={`w-3/5 h-3/5 ${customBg === 'bg-white' ? 'text-slate-400/80' : 'text-white/90'} ${arrowRotation}`} fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  )}
                 </div>
               );
-            })}
-          </div>
-        </div>
-      </main>
+            });
+          })}
 
-      <footer className="w-full flex flex-col items-center gap-3 px-6 z-10">
-        <div className="flex gap-2">
-          {players.map((p, idx) => {
-            const vIdx = getVisualIdx(idx);
+          {/* Center dice - interactive roll button */}
+          <div 
+            onClick={handleDiceClick}
+            className={`col-start-6 col-end-7 row-start-6 row-end-7 z-40 place-self-center flex items-center justify-center transition-all duration-300 ${
+              isMyTurn && !gameState.dice_rolled && !isSpinning ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
+            }`}
+          >
+            <Dice value={gameState.dice} isRolling={isSpinning} />
+          </div>
+
+          {/* Render all game pieces */}
+          {allRenderedPieces.map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
+            const theme = playerColors[vIdx];
+            if (!theme) return null;
+            
+            const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
+
+            const piecesInSameCoord = allRenderedPieces.filter(
+              (p) => p.coord.r === coord.r && p.coord.c === coord.c
+            );
+            const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
+              (p) => p.playerId === pId && p.pieceIdx === pieceIdx
+            );
+
+            const transformStyle = piecesInSameCoord.length > 1
+              ? {
+                  transform: `translate(${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 6}px, ${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * -6}px)`,
+                  zIndex: 20 + pieceIndexInSameCoord,
+                }
+              : { zIndex: 10 };
+
             return (
-              <div 
-                key={p.id} 
-                className={`w-5 h-5 rounded-full border border-white/20 shadow-md ${
-                  playerColors[vIdx] ? playerColors[vIdx].piece : 'bg-slate-700/50'
-                } ${current_turn === idx ? 'scale-125 border-amber-400 ring-2 ring-amber-400/40' : ''}`}
-              />
+              <div
+                key={`piece-${pId}-${pieceIdx}`}
+                style={{
+                  gridRowStart: coord.r + 1,
+                  gridColumnStart: coord.c + 1,
+                  ...transformStyle,
+                }}
+                onClick={() => isMovable && onMovePiece(pieceIdx)}
+                className={`w-[85%] h-[85%] place-self-center rounded-full border-2 ${theme.piece} ${theme.pieceBorder} flex items-center justify-center shadow-md transition-all duration-300 ${
+                  isMovable ? 'cursor-pointer animate-bounce border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.8)] z-30 scale-105' : ''
+                }`}
+              >
+                <div className="w-1/3 h-1/4 rounded-full bg-white/40 shadow-inner" />
+              </div>
             );
           })}
         </div>
 
-        <div className="w-full max-w-[390px] flex justify-between items-center bg-black/60 backdrop-blur-md p-3.5 rounded-2xl border border-white/10 shadow-[0_15px_30px_rgba(0,0,0,0.5)]">
-          <div className="flex items-center gap-2">
-            {/* اصلاح خطای تایپی اینجا انجام شد */}
-            <div className={`px-4 py-2 bg-slate-900/90 rounded-lg border-2 ${
-              isMyTurn ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'border-slate-800'
-            }`}>
-              <span className="text-sm font-bold text-slate-100">
-                {players[current_turn]?.name || `Player ${current_turn + 1}`}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-slate-900/90 flex items-center justify-center border border-white/10 text-white font-extrabold text-lg">
-              {gameState.dice !== null ? gameState.dice : '-'}
-            </div>
-
-            <button 
-              onClick={onLeave}
-              className="w-10 h-10 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-white/10 active:scale-95 transition flex items-center justify-center gap-1"
-            >
-              <div className="w-1.5 h-4 bg-white rounded-full" />
-              <div className="w-1.5 h-4 bg-white rounded-full" />
-            </button>
-          </div>
+        {/* Turn indicator dots - bottom center */}
+        <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 flex gap-1.5 z-40">
+          {players.map((p, idx) => {
+            const vIdx = getVisualIdx(idx);
+            return (
+              <div
+                key={p.id}
+                className={`w-2.5 h-2.5 rounded-full border border-white/30 shadow-sm ${
+                  playerColors[vIdx] ? playerColors[vIdx].piece : 'bg-slate-700'
+                } ${current_turn === idx ? 'scale-150 ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-900' : 'opacity-60'}`}
+              />
+            );
+          })}
         </div>
-      </footer>
+      </div>
     </div>
   );
 };

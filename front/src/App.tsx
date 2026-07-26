@@ -14,7 +14,7 @@ import { applyTheme, ThemeMode } from './utils/theme';
 import { getQueryParams } from './utils/bridge';
 
 export function App() {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
+  const [theme, _setTheme] = useState<ThemeMode>('dark');
   const queryParams = getQueryParams();
   const isDirectMode = !!queryParams.roomId;
 
@@ -47,7 +47,6 @@ export function App() {
           localPlayerId={playerId}
           onRollDice={rollDice}
           onMovePiece={movePiece}
-          onRestartGame={restartGame}
           onLeave={leaveGame}
         />
       );

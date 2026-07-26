@@ -46,12 +46,12 @@ export const DisconnectOverlay: React.FC<DisconnectOverlayProps> = ({
 
         {/* Alarm Headers */}
         <h3 className="text-xl font-extrabold tracking-wider text-red-500 uppercase mb-2">
-          Connection Interrupted
+          قطع ارتباط
         </h3>
         
         {/* Dynamic description displaying the disconnected player's nickname */}
         <p className="text-sm text-slate-400 mb-6">
-          <span className="font-bold text-slate-200">{playerName}</span> has disconnected. Waiting for them to reconnect...
+          <span className="font-bold text-slate-200">{playerName}</span> قطع ارتباط شد. در انتظار بازگشت...
         </p>
 
         {/* Circular/Large Countdown Timer display block */}
@@ -66,14 +66,14 @@ export const DisconnectOverlay: React.FC<DisconnectOverlayProps> = ({
               {timeLeft}
             </span>
             <span className="block text-[10px] uppercase tracking-widest text-slate-500 mt-1 font-semibold">
-              Seconds
+              ثانیه
             </span>
           </div>
         </div>
 
         {/* Explanatory subtitle regarding the forfeit rules */}
         <p className="text-[11px] text-slate-500 max-w-[240px] mx-auto leading-relaxed">
-          The match will automatically forfeit if they do not reconnect within 60 seconds.
+          بازی به صورت خودکار واگذار می‌شود اگر تا ۶۰ ثانیه دیگر متصل نشود.
         </p>
 
       </div>

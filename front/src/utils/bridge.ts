@@ -37,17 +37,17 @@ export function getQueryParams(): Record<string, string> {
  * Get dynamic WS base URL from the current page hostname.
  * This makes the game work from any deployment (not just localhost).
  */
-export function getWsBaseUrl(port: number = 8000): string {
+export function getWsBaseUrl(_port: number = 8000): string {
   const hostname = window.location.hostname || 'localhost';
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${hostname}:${port}`;
+  return `${protocol}//${hostname}`;
 }
 
 /**
  * Get dynamic HTTP base URL from the current page hostname.
  */
-export function getHttpBaseUrl(port: number = 8000): string {
+export function getHttpBaseUrl(_port: number = 8000): string {
   const hostname = window.location.hostname || 'localhost';
   const protocol = window.location.protocol || 'http:';
-  return `${protocol}//${hostname}:${port}`;
+  return `${protocol}//${hostname}`;
 }

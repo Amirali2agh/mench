@@ -34,7 +34,7 @@ export const QueueScreen: React.FC<QueueScreenProps> = ({
         
         {/* Subtitle / Matchmaking Indicator */}
         <span className="inline-block px-3 py-1 mb-6 text-xs font-bold tracking-widest text-indigo-400 uppercase bg-indigo-500/10 rounded-full border border-indigo-500/20">
-          Matchmaking
+          صف یابی
         </span>
 
         {/* Pulsing Avatar Animation block */}
@@ -50,7 +50,7 @@ export const QueueScreen: React.FC<QueueScreenProps> = ({
           <div className="relative z-10 w-24 h-24 p-1 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 shadow-xl">
             <img
               src={playerAvatar}
-              alt="Profile Avatar"
+              alt="آواتار کاربر"
               className="w-full h-full object-cover bg-slate-800 rounded-full"
             />
           </div>
@@ -61,7 +61,7 @@ export const QueueScreen: React.FC<QueueScreenProps> = ({
           {playerName}
         </h2>
         <p className="text-sm text-slate-400 mb-8 max-w-xs mx-auto">
-          Searching for suitable opponents... Please hold on.
+          در حال جستجوی حریف مناسب... لطفاً منتظر بمانید.
         </p>
 
         {/* Waiting Status text loader */}
@@ -77,7 +77,7 @@ export const QueueScreen: React.FC<QueueScreenProps> = ({
           onClick={onLeaveQueue}
           className="w-full py-3 rounded-xl border border-slate-700 text-slate-400 font-semibold text-sm hover:bg-slate-800 hover:text-white hover:border-slate-600 transition-all duration-200 active:scale-[0.98]"
         >
-          CANCEL SEARCH
+          لغو جستجو
         </button>
 
       </div>

@@ -40,7 +40,7 @@ export function useMenschSocket() {
   const queueSocketRef = useRef<WebSocket | null>(null);
   const roomSocketRef = useRef<WebSocket | null>(null);
 
-  const [playerId, setPlayerId] = useState<string>(externalPlayerId || `p-${crypto.randomUUID()}`);
+  const [playerId, _setPlayerId] = useState<string>(externalPlayerId || `p-${crypto.randomUUID()}`);
   const [playerName, setPlayerName] = useState<string>(externalPlayerName);
   const [playerAvatar, setPlayerAvatar] = useState<string>(externalPlayerAvatar);
   const [roomId, setRoomId] = useState<string | null>(directRoomId);
@@ -124,7 +124,7 @@ export function useMenschSocket() {
           const httpBaseUrl = getHttpBaseUrl(8000);
           const resp = await fetch(`${httpBaseUrl}/api/rooms/${directRoomId}`);
           if (resp.ok) {
-            const room = await resp.json();
+            await resp.json();
             // Determine which player we are and connect
             connectToRoom(directRoomId, externalPlayerId, externalPlayerName || 'بازیکن');
           }

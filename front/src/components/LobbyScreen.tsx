@@ -39,7 +39,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
     e.preventDefault();
     
     // Fallback default name if the input is left blank
-    const finalName = name.trim() || 'Mensch Player';
+    const finalName = name.trim() || 'بازیکن';
     
     // Generate a beautiful robot avatar based on the name seed
     const finalAvatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(finalName)}`;
@@ -59,22 +59,22 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
         {/* Header Section */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-wide bg-gradient-to-r from-red-500 via-blue-500 to-yellow-500 bg-clip-text text-transparent">
-            MENSCH ONLINE
+            منچ آنلاین
           </h1>
           <p className="text-sm text-slate-400 mt-2">
-            Enter your details to join the matchmaking queue
+            برای ورود به صف بازی اطلاعات خود را وارد کنید
           </p>
         </div>
 
         {/* Input Field (Supports Persian characters and input methods natively) */}
         <div className="mb-6">
           <label className="block text-sm font-semibold text-slate-300 mb-2">
-            Your Nickname
+            نام شما
           </label>
           <input
             type="text"
             maxLength={15}
-            placeholder="Enter nickname..."
+            placeholder="نام خود را وارد کنید..."
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={isConnecting}
@@ -85,7 +85,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
         {/* Player Count Selection (2 or 4) */}
         <div className="mb-6">
           <label className="block text-sm font-semibold text-slate-300 mb-2">
-            Match Size
+            تعداد بازیکنان
           </label>
           <div className="grid grid-cols-2 gap-3">
             {[2, 4].map((count) => (
@@ -100,7 +100,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
                     : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:bg-slate-800/80'
                 }`}
               >
-                {count} Players
+                {count} نفره
               </button>
             ))}
           </div>
@@ -109,7 +109,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
         {/* Pieces Count Selection (2, 3, or 4) */}
         <div className="mb-8">
           <label className="block text-sm font-semibold text-slate-300 mb-2">
-            Pieces Per Player
+            تعداد مهره
           </label>
           <div className="grid grid-cols-3 gap-3">
             {[2, 3, 4].map((count) => (
@@ -124,7 +124,7 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
                     : 'bg-slate-800/40 border-slate-700/50 text-slate-400 hover:bg-slate-800/80'
                 }`}
               >
-                {count} Pieces
+                {count} مهره
               </button>
             ))}
           </div>
@@ -143,10 +143,10 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
           {isConnecting ? (
             <div className="flex items-center justify-center gap-2">
               <span className="w-5 h-5 border-2 border-slate-500 border-t-indigo-500 rounded-full animate-spin"></span>
-              Connecting...
+              در حال اتصال...
             </div>
           ) : (
-            'SEARCH MATCH'
+            'جستجوی بازی'
           )}
         </button>
 
