@@ -161,7 +161,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(3px,0.5vmin,8px)] p-[clamp(4px,0.8vmin,12px)] w-full h-full">
           {Array.from({ length: 4 }).map((_, idx) => {
             const slotTaken = ownerIdx >= 0 && players[ownerIdx] && pieces[players[ownerIdx].id]?.[idx] === -1;
-            const isMovablePiece = ownerIdx === localPlayerIdx && slotTaken && isMyTurn && gameState.dice === 6 && !gameState.dice_rolled;
+            const isMovablePiece = ownerIdx === localPlayerIdx && slotTaken && isMyTurn && gameState.dice === 6 && gameState.dice_rolled;
             return (
               <div
                 key={idx}
