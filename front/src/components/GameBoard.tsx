@@ -127,20 +127,19 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     hasActedRef.current = false;
   }, [gameState?.current_turn, gameState?.status]);
 
-  // Countdown tick
+  // Countdown tick — only auto-pass when it's the LOCAL player's turn
   useEffect(() => {
-    // Only run timer when game is playing and it's someone's turn
     if (gameState?.status !== 'playing') return;
 
     turnTimerRef.current = setInterval(() => {
       setTurnTimeLeft((prev) => {
         if (prev <= 1) {
           if (turnTimerRef.current) clearInterval(turnTimerRef.current);
-          // If it's the local player's turn, auto-pass
-          if (!hasActedRef.current) {
+          // Only pass if it's the local player's turn and they haven't acted
+          if (current_turn === localPlayerIdx && !hasActedRef.current) {
             onPassTurn();
           }
-          return 0;
+          return current_turn === localPlayerIdx ? 0 : prev;
         }
         return prev - 1;
       });
