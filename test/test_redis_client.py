@@ -8,7 +8,9 @@ async def test_redis_client_configuration():
     connection_kwargs = redis_client.connection_pool.connection_kwargs
     
     # بررسی پارامترها
-    assert connection_kwargs["host"] == "localhost"
+    import os
+    expected_host = os.getenv("REDIS_HOST", "localhost")
+    assert connection_kwargs["host"] == expected_host
     assert connection_kwargs["port"] == 6379
     assert connection_kwargs["db"] == 0
     assert connection_kwargs["decode_responses"] is True

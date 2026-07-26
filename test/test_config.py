@@ -11,7 +11,8 @@ def test_default_settings():
     assert settings.DEBUG is True
     
     # بررسی مقادیر پیش‌فرض رادیس
-    assert settings.REDIS_HOST == "localhost"
+    expected_host = os.getenv("REDIS_HOST", "localhost")
+    assert settings.REDIS_HOST == expected_host
     assert settings.REDIS_PORT == 6379
     assert settings.REDIS_DB == 0
     assert settings.REDIS_PASSWORD is None
