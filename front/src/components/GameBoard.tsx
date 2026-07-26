@@ -349,15 +349,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               })}
 
               {/* Dice in center */}
-              <div 
-                onClick={handleDiceClick}
-                className={`col-start-6 col-end-7 row-start-6 row-end-7 z-40 place-self-center flex items-center justify-center transition-all duration-300 ${
-                  isMyTurn && !gameState.dice_rolled && !isSpinning ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
-                }`}
-              >
-                <Dice value={gameState.dice} isRolling={isSpinning} />
-              </div>
-
               {/* Game pieces - only render pieces on the track (yard pieces rendered in renderBaseYard) */}
               {allRenderedPieces.filter(p => p.pos >= 0).map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
                 const theme = playerColors[vIdx];
