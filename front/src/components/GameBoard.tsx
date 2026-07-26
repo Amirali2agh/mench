@@ -140,16 +140,36 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const ownerIdx = players.findIndex((_, i) => getVisualIdx(i) === vIdx);
     const isOwned = ownerIdx !== -1;
     const isPlayerActive = isOwned && current_turn === ownerIdx;
+    const color = getColorForVisualIdx(vIdx);
 
     return (
-      <div className={`w-full h-full rounded-2xl ${theme.bg} border-2 ${isPlayerActive ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]' : 'border-white/30'} ${!isOwned ? 'opacity-30 grayscale' : ''} flex items-center justify-center relative shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] transition-all duration-300`}>
-        <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(3px,0.6vmin,8px)] p-[clamp(4px,1vmin,12px)] w-4/5 h-4/5">
+      <div className={`w-full h-full rounded-[clamp(8px,1.5vmin,18px)] ${theme.bg} border-[clamp(1px,0.2vmin,2.5px)] ${
+        isPlayerActive ? 'border-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.4)]' : 'border-white/20'
+      } ${!isOwned ? 'opacity-30 grayscale' : ''} flex items-center justify-center relative shadow-[inset_0_4px_10px_rgba(0,0,0,0.15)] transition-all duration-300`}>
+        <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(3px,0.5vmin,8px)] p-[clamp(4px,0.8vmin,12px)] w-full h-full">
           {Array.from({ length: 4 }).map((_, idx) => {
-            // Check if this specific piece slot is empty (in base yard, pos === -1)
             const slotTaken = ownerIdx >= 0 && players[ownerIdx] && pieces[players[ownerIdx].id]?.[idx] === -1;
+            const isMovablePiece = ownerIdx === localPlayerIdx && slotTaken && isMyTurn && gameState.dice === 6 && !gameState.dice_rolled;
             return (
-              <div key={idx} className={`w-full h-full rounded-full ${slotTaken ? 'bg-white/90 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]' : 'bg-white/25'} border-2 ${theme.pieceBorder} flex items-center justify-center`}>
-                {slotTaken && <div className="w-1/3 h-1/4 rounded-full bg-white/60 shadow-inner" />}
+              <div
+                key={idx}
+                className="w-full h-full rounded-full bg-black/15 shadow-[inset_0_2px_6px_rgba(0,0,0,0.3)] border border-white/5 flex items-center justify-center relative"
+              >
+                {slotTaken && (
+                  <div
+                    onClick={() => isMovablePiece && onMovePiece(idx)}
+                    className={`w-[88%] h-[88%] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center relative ${
+                      isMovablePiece ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-1 ring-offset-transparent z-30 scale-105' : ''
+                    }`}
+                  >
+                    <div className="w-[70%] h-[70%] rounded-full relative overflow-hidden" style={{ backgroundColor: color }}>
+                      {/* Specular highlight */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent rounded-full" />
+                    </div>
+                    {/* Top-left gleam */}
+                    <div className="absolute top-[8%] left-[15%] w-[30%] h-[20%] rounded-full bg-white/60 blur-[1px] rotate-[-20deg]" />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -345,8 +365,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 <Dice value={gameState.dice} isRolling={isSpinning} />
               </div>
 
-              {/* Game pieces */}
-              {allRenderedPieces.map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
+              {/* Game pieces - only render pieces on the track (yard pieces rendered in renderBaseYard) */}
+              {allRenderedPieces.filter(p => p.pos >= 0).map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
                 const theme = playerColors[vIdx];
                 if (!theme) return null;
                 const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
@@ -367,8 +387,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
                 const color = getColorForVisualIdx(vIdx);
 
-                const pieceColors = { borderColor: color, backgroundColor: 'white' };
-
                 return (
                   <div
                     key={`piece-${pId}-${pieceIdx}`}
@@ -376,14 +394,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                       gridRowStart: coord.r + 1,
                       gridColumnStart: coord.c + 1,
                       ...transformStyle,
-                      ...pieceColors,
                     }}
                     onClick={() => isMovable && onMovePiece(pieceIdx)}
-                    className={`w-[80%] h-[80%] place-self-center rounded-full border-[3px] flex items-center justify-center shadow-md transition-all duration-300 ${
-                      isMovable ? 'cursor-pointer animate-bounce border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)] z-30 scale-105' : ''
+                    className={`w-[80%] h-[80%] place-self-center rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center relative transition-all duration-300 ${
+                      isMovable ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-2 z-30 scale-105' : ''
                     }`}
                   >
-                    <div className="w-1/3 h-1/4 rounded-full bg-white/80 shadow-inner" style={{ backgroundColor: color + '20' }} />
+                    <div className="w-[70%] h-[70%] rounded-full relative overflow-hidden" style={{ backgroundColor: color }}>
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent rounded-full" />
+                    </div>
+                    <div className="absolute top-[8%] left-[15%] w-[30%] h-[20%] rounded-full bg-white/60 blur-[1px] rotate-[-20deg]" />
                   </div>
                 );
               })}
