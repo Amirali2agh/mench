@@ -1,9 +1,10 @@
 // front/src/components/GameBoard.tsx
+// Complete visual redesign matching the reference Ludo game UI
 
 import React, { useState } from 'react';
 import { GameState } from '../types';
 import { playerColors } from '../utils/colors';
-import { getGridCoordinates, getArrowRotation, GridCoord } from '../utils/boardCoordinates';
+import { getGridCoordinates, getArrowRotation, GridCoord, safeTrackPositions, circularTrack } from '../utils/boardCoordinates';
 import Dice from './Dice';
 
 interface GameBoardProps {
@@ -13,6 +14,38 @@ interface GameBoardProps {
   onMovePiece: (pieceIndex: number) => void;
   onLeave: () => void;
 }
+
+const PlayerAvatar: React.FC<{ name: string; avatar?: string }> = ({ name, avatar }) => {
+  const initials = name?.charAt(0) || '?';
+  return (
+    <div className="w-[42px] h-[42px] rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center overflow-hidden shadow-inner text-slate-600 font-bold text-lg">
+      {avatar ? (
+        <img src={avatar} alt={name} className="w-full h-full object-cover" />
+      ) : (
+        initials
+      )}
+    </div>
+  );
+};
+
+const SmallDice: React.FC<{ value: number | null }> = ({ value }) => {
+  const val = value || 1;
+  const dotPositions: Record<number, number[]> = {
+    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+  };
+  const active = dotPositions[val] || [];
+  return (
+    <div className="w-[36px] h-[36px] bg-white rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.08)] grid grid-cols-3 grid-rows-3 gap-[2px] p-[5px] flex-shrink-0">
+      {Array.from({ length: 9 }).map((_, i) => (
+        <div key={i} className="flex items-center justify-center">
+          {active.includes(i) && <div className="w-[4px] h-[4px] rounded-full bg-[#1A1A1A]" />}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// Star icon for safe cells
 
 export const GameBoard: React.FC<GameBoardProps> = ({
   gameState,
@@ -25,7 +58,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
   if (!gameState || !gameState.players || !gameState.pieces) {
     return (
-      <div className="fixed inset-0 bg-slate-950 flex items-center justify-center">
+      <div className="fixed inset-0 bg-[#F9F6F0] flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-amber-500"></div>
       </div>
     );
@@ -65,186 +98,365 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     if (!isMyTurn || !gameState.dice_rolled) return false;
     const myPieces = pieces[localPlayerId] || [];
     const currentPos = myPieces[pieceIdx];
-
     if (currentPos === undefined) return false;
     if (currentPos === -1 && gameState.dice !== 6) return false;
     if (gameState.dice && currentPos !== -1 && currentPos + gameState.dice > 44) return false;
-
     return true;
   };
 
   const handleDiceClick = () => {
     if (!isMyTurn || isSpinning || gameState.dice_rolled) return;
-    
     setIsSpinning(true);
     onRollDice();
-    
-    setTimeout(() => {
-      setIsSpinning(false);
-    }, 600);
+    setTimeout(() => { setIsSpinning(false); }, 600);
+  };
+
+  const getColorForVisualIdx = (vIdx: number): string => {
+    const map: Record<number, string> = {
+      0: '#F94144', // red
+      1: '#277DA1', // blue
+      2: '#43AA8B', // green
+      3: '#F9C74F', // yellow
+    };
+    return map[vIdx] || '#999';
+  };
+
+  // Map player index to visual position around the board
+  // TL=green(v2), TR=blue(v1), BL=red(v0), BR=yellow(v3)
+  const getPlayerPanelPosition = (playerIdx: number): 'tl' | 'tr' | 'bl' | 'br' | null => {
+    const vIdx = getVisualIdx(playerIdx);
+    const map: Record<number, 'tl' | 'tr' | 'bl' | 'br'> = {
+      2: 'tl',  // green → top-left
+      1: 'tr',  // blue → top-right
+      0: 'bl',  // red → bottom-left
+      3: 'br',  // yellow → bottom-right
+    };
+    return map[vIdx] || null;
   };
 
   const renderBaseYard = (vIdx: number) => {
     const theme = playerColors[vIdx];
     if (!theme) return null;
-
     const ownerIdx = players.findIndex((_, i) => getVisualIdx(i) === vIdx);
     const isOwned = ownerIdx !== -1;
     const isPlayerActive = isOwned && current_turn === ownerIdx;
 
     return (
-      <div className={`w-full h-full rounded-full ${theme.bg} border-2 ${isPlayerActive ? 'border-amber-400 animate-pulse' : 'border-slate-800/60'} ${!isOwned ? 'opacity-30 grayscale' : ''} flex items-center justify-center relative shadow-[inset_0_4px_8px_rgba(0,0,0,0.3)] transition-all duration-300`}>
-        <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(2px,0.5vmin,6px)] p-[clamp(4px,1vmin,10px)] w-4/5 h-4/5 bg-black/10 rounded-full">
-          {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="w-full h-full rounded-full bg-black/35 border border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]" />
-          ))}
+      <div className={`w-full h-full rounded-2xl ${theme.bg} border-2 ${isPlayerActive ? 'border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)]' : 'border-white/30'} ${!isOwned ? 'opacity-30 grayscale' : ''} flex items-center justify-center relative shadow-[inset_0_4px_8px_rgba(0,0,0,0.15)] transition-all duration-300`}>
+        <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(3px,0.6vmin,8px)] p-[clamp(4px,1vmin,12px)] w-4/5 h-4/5">
+          {Array.from({ length: 4 }).map((_, idx) => {
+            // Check if this specific piece slot is empty (in base yard, pos === -1)
+            const slotTaken = ownerIdx >= 0 && players[ownerIdx] && pieces[players[ownerIdx].id]?.[idx] === -1;
+            return (
+              <div key={idx} className={`w-full h-full rounded-full ${slotTaken ? 'bg-white/90 shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]' : 'bg-white/25'} border-2 ${theme.pieceBorder} flex items-center justify-center`}>
+                {slotTaken && <div className="w-1/3 h-1/4 rounded-full bg-white/60 shadow-inner" />}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
   };
 
-  return (
-    <div className="fixed inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#2d1b11] via-[#1a0f0a] to-[#0f0805] select-none font-sans">
-      <div className="relative w-[min(92vw,92vh)] aspect-square max-w-[500px] bg-slate-100 rounded-[clamp(8px,2vmin,16px)] p-[1.5vmin] shadow-[0_25px_60px_rgba(0,0,0,0.7)] border-[clamp(2px,0.5vmin,4px)] border-stone-200/90 flex items-center justify-center">
-        
-        {/* Current player name label - top center */}
-        <div className="absolute top-[-6px] left-1/2 -translate-x-1/2 z-40 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white whitespace-nowrap leading-tight">
-          {players[current_turn]?.name || `بازیکن ${current_turn + 1}`}
-        </div>
+  // Build player panels for the 4 corners
+  const renderPlayerPanel = (playerIdx: number) => {
+    const pos = getPlayerPanelPosition(playerIdx);
+    if (!pos || !players[playerIdx]) return null;
+    const p = players[playerIdx];
+    const vIdx = getVisualIdx(playerIdx);
+    const color = getColorForVisualIdx(vIdx);
+    const diceVal = current_turn === playerIdx ? gameState.dice : (pieces[p.id]?.[0] !== undefined ? Math.min(6, Math.max(1, (pieces[p.id][0] + 1) % 7)) : null);
+    const isTurn = current_turn === playerIdx;
 
-        {/* Leave button - top right */}
+    return (
+      <div className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? 'ring-2 ring-amber-400/60' : ''}`}>
+        <div className="relative">
+          <PlayerAvatar name={p.name} avatar={p.avatar} />
+          <div className="absolute -bottom-0.5 -right-0.5 w-[10px] h-[10px] rounded-full border-2 border-white" style={{ backgroundColor: color }} />
+        </div>
+        <div className="flex flex-col items-start leading-tight">
+          <span className="text-[13px] font-semibold text-[#2C2C2C] whitespace-nowrap">{p.name}</span>
+          <div className="flex items-center gap-1">
+            <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: color }} />
+            <SmallDice value={diceVal} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Find players for each position
+  const tlPlayer = players.findIndex((_, i) => getVisualIdx(i) === 2);
+  const trPlayer = players.findIndex((_, i) => getVisualIdx(i) === 1);
+  const blPlayer = players.findIndex((_, i) => getVisualIdx(i) === 0);
+  const brPlayer = players.findIndex((_, i) => getVisualIdx(i) === 3);
+
+  return (
+    <div className="h-screen w-screen flex flex-col bg-[#F9F6F0] font-sans overflow-hidden select-none">
+      
+      {/* ═══ TOP HEADER ═══ */}
+      <header className="flex items-center justify-between px-4 pt-3 pb-1">
         <button
           onClick={onLeave}
-          className="absolute top-[-8px] right-[-8px] w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center z-50 active:scale-90 hover:bg-black/80 transition-all"
-          title="خروج از بازی"
+          className="w-[44px] h-[44px] bg-white rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.05)] flex items-center justify-center active:scale-90 transition-transform"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="5" r="1" />
+            <circle cx="12" cy="12" r="1" />
+            <circle cx="12" cy="19" r="1" />
           </svg>
         </button>
 
-        {/* 11x11 board grid */}
-        <div className="grid grid-cols-11 grid-rows-11 gap-[0.4vmin] w-full h-full relative">
+        <div className="bg-white rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.04)] px-6 py-2">
+          <span className="text-[15px] font-bold text-[#2C2C2C]">منچ آنلاین</span>
+        </div>
+
+        <div className="w-[44px] h-[44px] bg-white rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.05)] flex items-center justify-center">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#D4A373" stroke="none">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+          </svg>
+        </div>
+      </header>
+
+      {/* ═══ MAIN AREA: Player panels + Board + Dice ═══ */}
+      <main className="flex-1 flex flex-col overflow-hidden px-2">
+        
+        {/* Top players row */}
+        <div className="flex justify-between items-start px-1 pt-1 pb-1 min-h-[52px]">
+          <div>{tlPlayer >= 0 && renderPlayerPanel(tlPlayer)}</div>
+          <div>{trPlayer >= 0 && renderPlayerPanel(trPlayer)}</div>
+        </div>
+
+        {/* Board + Bottom players */}
+        <div className="flex-1 flex flex-col items-center justify-center gap-1 min-h-0">
           
-          {renderBaseYard(2) ? <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(2)}</div> : null}
-          {renderBaseYard(0) ? <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(0)}</div> : null}
-          {renderBaseYard(3) ? <div className="col-start-1 col-end-5 row-start-8 row-end-12 p-[0.3vmin]">{renderBaseYard(3)}</div> : null}
-          {renderBaseYard(1) ? <div className="col-start-8 col-end-12 row-start-8 row-end-12 p-[0.3vmin]">{renderBaseYard(1)}</div> : null}
-
-          <div className="absolute inset-0 bg-[#e5e5e5]/40 rounded-xl pointer-events-none -z-10" />
-
-          {Array.from({ length: 11 }).map((_, rIdx) => {
-            return Array.from({ length: 11 }).map((_, cIdx) => {
-              if (rIdx < 4 && cIdx < 4) return null;
-              if (rIdx < 4 && cIdx >= 7) return null;
-              if (rIdx >= 7 && cIdx < 4) return null;
-              if (rIdx >= 7 && cIdx >= 7) return null;
-
-              if (rIdx === 5 && cIdx === 5) {
-                return (
-                  <div key={`cell-${rIdx}-${cIdx}`} className="col-start-6 col-end-7 row-start-6 row-end-7 bg-slate-200/35 rounded-xl flex items-center justify-center relative">
-                    <div className="w-full h-full rounded-full bg-slate-300/40 border border-slate-400/20" />
-                  </div>
-                );
-              }
-
-              let customBg = 'bg-white';
-              let isHomeStretch = false;
+          {/* Board */}
+          <div className="w-[min(88vw,78vh)] aspect-square max-w-[480px] bg-[#FAF4E6] rounded-[clamp(16px,3vmin,28px)] p-[clamp(8px,1.5vmin,16px)] shadow-[0_16px_36px_rgba(0,0,0,0.08),inset_0_2px_6px_rgba(255,255,255,0.6)] border-[clamp(2px,0.4vmin,4px)] border-[#E8D3B0] flex items-center justify-center">
+            <div className="grid grid-cols-11 grid-rows-11 gap-[0.35vmin] w-full h-full relative">
               
-              if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-red-500'; isHomeStretch = true; }
-              else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-blue-500'; isHomeStretch = true; }
-              else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-green-500'; isHomeStretch = true; }
-              else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-yellow-500'; isHomeStretch = true; }
+              {/* Yards */}
+              <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(2)}</div>  {/* TL: green */}
+              <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(1)}</div>  {/* TR: blue */}
+              <div className="col-start-1 col-end-5 row-start-8 row-end-12 p-[0.3vmin]">{renderBaseYard(0)}</div>  {/* BL: red */}
+              <div className="col-start-8 col-end-12 row-start-8 row-end-12 p-[0.3vmin]">{renderBaseYard(3)}</div>  {/* BR: yellow */}
 
-              if (rIdx === 0 && cIdx === 6) customBg = 'bg-red-500';
-              else if (rIdx === 6 && cIdx === 10) customBg = 'bg-blue-500';
-              else if (rIdx === 4 && cIdx === 0) customBg = 'bg-green-500';
-              else if (rIdx === 10 && cIdx === 4) customBg = 'bg-yellow-500';
+              <div className="absolute inset-0 bg-white/30 rounded-xl pointer-events-none -z-10" />
 
-              const arrowRotation = getArrowRotation({ r: rIdx, c: cIdx });
+              {/* Grid cells */}
+              {Array.from({ length: 11 }).map((_, rIdx) => {
+                return Array.from({ length: 11 }).map((_, cIdx) => {
+                  if (rIdx < 4 && cIdx < 4) return null;
+                  if (rIdx < 4 && cIdx >= 7) return null;
+                  if (rIdx >= 7 && cIdx < 4) return null;
+                  if (rIdx >= 7 && cIdx >= 7) return null;
 
-              return (
-                <div
-                  key={`cell-${rIdx}-${cIdx}`}
-                  style={{ gridRowStart: rIdx + 1, gridColumnStart: cIdx + 1 }}
-                  className={`rounded-full border border-slate-400/70 shadow-[0_1px_3px_rgba(0,0,0,0.15)] flex items-center justify-center relative transition-all duration-300 ${customBg} aspect-square p-[0.2vmin]`}
-                >
-                  {!isHomeStretch && (
-                    <svg className={`w-3/5 h-3/5 ${customBg === 'bg-white' ? 'text-slate-400/80' : 'text-white/90'} ${arrowRotation}`} fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  )}
-                </div>
-              );
-            });
-          })}
+                  // Center cell - home triangle area
+                  if (rIdx === 5 && cIdx === 5) {
+                    return (
+                      <div key={`cell-${rIdx}-${cIdx}`} className="col-start-6 col-end-7 row-start-6 row-end-7 flex items-center justify-center relative">
+                        {/* Colored triangles in center */}
+                        <div className="w-full h-full rounded-lg overflow-hidden relative">
+                          {/* Top triangle - Blue */}
+                          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[clamp(8px,1.5vmin,18px)] border-r-[clamp(8px,1.5vmin,18px)] border-b-[clamp(8px,1.5vmin,18px)] border-l-transparent border-r-transparent border-b-[#277DA1]/40" />
+                          {/* Right triangle - Yellow */}
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[clamp(8px,1.5vmin,18px)] border-b-[clamp(8px,1.5vmin,18px)] border-l-[clamp(8px,1.5vmin,18px)] border-t-transparent border-b-transparent border-l-[#F9C74F]/40" />
+                          {/* Bottom triangle - Red */}
+                          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[clamp(8px,1.5vmin,18px)] border-r-[clamp(8px,1.5vmin,18px)] border-t-[clamp(8px,1.5vmin,18px)] border-l-transparent border-r-transparent border-t-[#F94144]/40" />
+                          {/* Left triangle - Green */}
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[clamp(8px,1.5vmin,18px)] border-b-[clamp(8px,1.5vmin,18px)] border-r-[clamp(8px,1.5vmin,18px)] border-t-transparent border-b-transparent border-r-[#43AA8B]/40" />
+                          {/* Center circle */}
+                          <div className="absolute inset-[25%] rounded-full bg-[#E8D3B0]/50 border border-[#D4C4A0]" />
+                        </div>
+                      </div>
+                    );
+                  }
 
-          {/* Center dice - interactive roll button */}
-          <div 
-            onClick={handleDiceClick}
-            className={`col-start-6 col-end-7 row-start-6 row-end-7 z-40 place-self-center flex items-center justify-center transition-all duration-300 ${
-              isMyTurn && !gameState.dice_rolled && !isSpinning ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
-            }`}
-          >
-            <Dice value={gameState.dice} isRolling={isSpinning} />
-          </div>
+                  let customBg = 'bg-white';
+                  let isHomeStretch = false;
+                  let isStarCell = false;
 
-          {/* Render all game pieces */}
-          {allRenderedPieces.map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
-            const theme = playerColors[vIdx];
-            if (!theme) return null;
-            
-            const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
+                  // Home stretch: colored path from each corner toward center
+                  // Blue (TR → center vertical): cIdx===5, rIdx 1-4
+                  // Yellow (BR → center horizontal): rIdx===5, cIdx 6-9
+                  // Green (TL → center horizontal): rIdx===5, cIdx 1-4
+                  // Red (BL → center vertical): cIdx===5, rIdx 6-9
+                  
+                  if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-[#277DA1]/30'; isHomeStretch = true; }
+                  else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-[#F9C74F]/30'; isHomeStretch = true; }
+                  else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-[#43AA8B]/30'; isHomeStretch = true; }
+                  else if (cIdx === 5 && rIdx >= 6 && rIdx <= 9) { customBg = 'bg-[#F94144]/30'; isHomeStretch = true; }
 
-            const piecesInSameCoord = allRenderedPieces.filter(
-              (p) => p.coord.r === coord.r && p.coord.c === coord.c
-            );
-            const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
-              (p) => p.playerId === pId && p.pieceIdx === pieceIdx
-            );
+                  // Starting position markers (colored cells where players enter the track)
+                  // Blue start: (0,6), Yellow start: (6,10), Green start: (4,0), Red start: (10,4)
+                  if (rIdx === 0 && cIdx === 6) customBg = 'bg-[#277DA1]';
+                  else if (rIdx === 6 && cIdx === 10) customBg = 'bg-[#F9C74F]';
+                  else if (rIdx === 4 && cIdx === 0) customBg = 'bg-[#43AA8B]';
+                  else if (rIdx === 10 && cIdx === 4) customBg = 'bg-[#F94144]';
 
-            const transformStyle = piecesInSameCoord.length > 1
-              ? {
-                  transform: `translate(${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 6}px, ${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * -6}px)`,
-                  zIndex: 20 + pieceIndexInSameCoord,
-                }
-              : { zIndex: 10 };
+                  // Star cells on safe positions
+                  // Check if this cell is a star position on the circular track
+                  const cellOnTrack = (r: number, c: number): number | null => {
+                    for (let i = 0; i < 39; i++) {
+                      const t = circularTrack[i];
+                      if (t && t.r === r && t.c === c) return i;
+                    }
+                    return null;
+                  };
+                  const starIdx = cellOnTrack(rIdx, cIdx);
+                  if (starIdx !== null && safeTrackPositions.has(starIdx)) {
+                    isStarCell = true;
+                  }
 
-            return (
-              <div
-                key={`piece-${pId}-${pieceIdx}`}
-                style={{
-                  gridRowStart: coord.r + 1,
-                  gridColumnStart: coord.c + 1,
-                  ...transformStyle,
-                }}
-                onClick={() => isMovable && onMovePiece(pieceIdx)}
-                className={`w-[85%] h-[85%] place-self-center rounded-full border-2 ${theme.piece} ${theme.pieceBorder} flex items-center justify-center shadow-md transition-all duration-300 ${
-                  isMovable ? 'cursor-pointer animate-bounce border-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.8)] z-30 scale-105' : ''
+                  const arrowRotation = getArrowRotation({ r: rIdx, c: cIdx });
+
+                  return (
+                    <div
+                      key={`cell-${rIdx}-${cIdx}`}
+                      style={{ gridRowStart: rIdx + 1, gridColumnStart: cIdx + 1 }}
+                      className={`rounded-full border ${
+                        customBg === 'bg-white' 
+                          ? 'border-[#D4C4A0]/60 shadow-[0_1px_2px_rgba(0,0,0,0.08)]' 
+                          : isHomeStretch 
+                            ? 'border-transparent' 
+                            : 'border-white/40 shadow-inner'
+                      } flex items-center justify-center relative transition-all duration-300 ${customBg} aspect-square p-[0.15vmin]`}
+                    >
+                      {isStarCell ? (
+                        <svg className="w-3/5 h-3/5 text-amber-500 drop-shadow-sm" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                        </svg>
+                      ) : !isHomeStretch && !customBg.startsWith('bg-[') && customBg === 'bg-white' ? (
+                        <svg className={`w-2/5 h-2/5 text-[#C4B89A]/60 ${arrowRotation}`} fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      ) : null}
+                    </div>
+                  );
+                });
+              })}
+
+              {/* Dice in center */}
+              <div 
+                onClick={handleDiceClick}
+                className={`col-start-6 col-end-7 row-start-6 row-end-7 z-40 place-self-center flex items-center justify-center transition-all duration-300 ${
+                  isMyTurn && !gameState.dice_rolled && !isSpinning ? 'cursor-pointer hover:scale-110 active:scale-95' : ''
                 }`}
               >
-                <div className="w-1/3 h-1/4 rounded-full bg-white/40 shadow-inner" />
+                <Dice value={gameState.dice} isRolling={isSpinning} />
               </div>
-            );
-          })}
-        </div>
 
-        {/* Turn indicator dots - bottom center */}
-        <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 flex gap-1.5 z-40">
-          {players.map((p, idx) => {
-            const vIdx = getVisualIdx(idx);
-            return (
-              <div
-                key={p.id}
-                className={`w-2.5 h-2.5 rounded-full border border-white/30 shadow-sm ${
-                  playerColors[vIdx] ? playerColors[vIdx].piece : 'bg-slate-700'
-                } ${current_turn === idx ? 'scale-150 ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-900' : 'opacity-60'}`}
-              />
-            );
-          })}
+              {/* Game pieces */}
+              {allRenderedPieces.map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
+                const theme = playerColors[vIdx];
+                if (!theme) return null;
+                const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
+
+                const piecesInSameCoord = allRenderedPieces.filter(
+                  (p) => p.coord.r === coord.r && p.coord.c === coord.c
+                );
+                const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
+                  (p) => p.playerId === pId && p.pieceIdx === pieceIdx
+                );
+
+                const transformStyle = piecesInSameCoord.length > 1
+                  ? {
+                      transform: `translate(${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 5}px, ${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * -5}px)`,
+                      zIndex: 20 + pieceIndexInSameCoord,
+                    }
+                  : { zIndex: 10 };
+
+                const color = getColorForVisualIdx(vIdx);
+
+                const pieceColors = { borderColor: color, backgroundColor: 'white' };
+
+                return (
+                  <div
+                    key={`piece-${pId}-${pieceIdx}`}
+                    style={{
+                      gridRowStart: coord.r + 1,
+                      gridColumnStart: coord.c + 1,
+                      ...transformStyle,
+                      ...pieceColors,
+                    }}
+                    onClick={() => isMovable && onMovePiece(pieceIdx)}
+                    className={`w-[80%] h-[80%] place-self-center rounded-full border-[3px] flex items-center justify-center shadow-md transition-all duration-300 ${
+                      isMovable ? 'cursor-pointer animate-bounce border-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)] z-30 scale-105' : ''
+                    }`}
+                  >
+                    <div className="w-1/3 h-1/4 rounded-full bg-white/80 shadow-inner" style={{ backgroundColor: color + '20' }} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom row: players + main dice */}
+          <div className="flex items-center justify-between w-full max-w-[480px] px-1 pb-1 min-h-[60px]">
+            <div>{blPlayer >= 0 && renderPlayerPanel(blPlayer)}</div>
+
+            {/* Large main dice */}
+            <div className="relative">
+              {/* Glow ring behind dice on active turn */}
+              {isMyTurn && !gameState.dice_rolled && !isSpinning && (
+                <div className="absolute inset-[-6px] rounded-[28px] bg-amber-400/20 animate-pulse" />
+              )}
+              <button
+                onClick={handleDiceClick}
+                disabled={!isMyTurn || isSpinning || gameState.dice_rolled}
+                className={`w-[72px] h-[72px] bg-white rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.8)] border-2 border-[#E6D5B8] flex items-center justify-center ${
+                  isMyTurn && !gameState.dice_rolled && !isSpinning
+                    ? 'active:scale-95 transition-transform'
+                    : ''
+                } ${isSpinning ? 'animate-[spin3D_0.5s_infinite_linear]' : ''}`}
+              >
+                <div className="grid grid-cols-3 grid-rows-3 gap-[3px] p-[10px] w-full h-full">
+                  {(() => {
+                    const val = gameState.dice || 1;
+                    const dotPositions: Record<number, number[]> = {
+                      1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+                    };
+                    const active = dotPositions[val] || [];
+                    return Array.from({ length: 9 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-center">
+                        {active.includes(i) && <div className="w-[7px] h-[7px] rounded-full bg-[#222222] shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]" />}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </button>
+            </div>
+
+            <div>{brPlayer >= 0 && renderPlayerPanel(brPlayer)}</div>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* ═══ CHAT BAR ═══ */}
+      <footer className="px-3 pb-[clamp(4px,1vh,8px)] pt-1">
+        <div className="flex items-center gap-2 bg-white rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.05)] px-4 py-[10px] mx-1">
+          <button className="flex-shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C5C5C" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+              <line x1="9" y1="9" x2="9.01" y2="9" />
+              <line x1="15" y1="9" x2="15.01" y2="9" />
+            </svg>
+          </button>
+          <input
+            type="text"
+            placeholder="پیام خود را بنویسید..."
+            className="flex-1 bg-transparent text-[14px] text-[#2C2C2C] placeholder-[#9C9C9C] outline-none text-right"
+            readOnly
+          />
+          <button className="flex-shrink-0">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C17D3C" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+      </footer>
+
     </div>
   );
 };
