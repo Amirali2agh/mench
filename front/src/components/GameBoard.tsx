@@ -435,26 +435,13 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               <button
                 onClick={handleDiceClick}
                 disabled={!isMyTurn || isSpinning || gameState.dice_rolled}
-                className={`w-[72px] h-[72px] bg-white rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.8)] border-2 border-[#E6D5B8] flex items-center justify-center ${
+                className={`w-[76px] h-[76px] bg-white rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.8)] border-2 border-[#E6D5B8] flex items-center justify-center ${
                   isMyTurn && !gameState.dice_rolled && !isSpinning
-                    ? 'active:scale-95 transition-transform'
+                    ? 'active:scale-95 transition-transform cursor-pointer'
                     : ''
-                } ${isSpinning ? 'animate-[spin3D_0.5s_infinite_linear]' : ''}`}
+                }`}
               >
-                <div className="grid grid-cols-3 grid-rows-3 gap-[3px] p-[10px] w-full h-full">
-                  {(() => {
-                    const val = gameState.dice || 1;
-                    const dotPositions: Record<number, number[]> = {
-                      1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
-                    };
-                    const active = dotPositions[val] || [];
-                    return Array.from({ length: 9 }).map((_, i) => (
-                      <div key={i} className="flex items-center justify-center">
-                        {active.includes(i) && <div className="w-[7px] h-[7px] rounded-full bg-[#222222] shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]" />}
-                      </div>
-                    ));
-                  })()}
-                </div>
+                <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.9]" />
               </button>
             </div>
 

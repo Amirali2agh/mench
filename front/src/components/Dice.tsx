@@ -5,9 +5,10 @@ import React, { useMemo } from 'react';
 export interface DiceProps {
   value: number | null;
   isRolling: boolean;
+  className?: string;
 }
 
-const Dice: React.FC<DiceProps> = ({ value, isRolling }) => {
+const Dice: React.FC<DiceProps> = ({ value, isRolling, className = '' }) => {
   // اگر مقدار تاس null باشد، نمایشگر خنثی داریم
   const displayValue = value !== null ? value : 1;
 
@@ -71,7 +72,7 @@ const Dice: React.FC<DiceProps> = ({ value, isRolling }) => {
     : { transform: `${getLandedTransform(displayValue)} ${randomTilt}` };
 
   return (
-    <div className="flex flex-col items-center justify-center relative w-10 h-10">
+    <div className={`flex flex-col items-center justify-center relative w-10 h-10 ${className}`}>
       <div 
         className={`absolute bottom-[-6px] w-8 h-1.5 rounded-full bg-black/40 blur-[3px] transition-all duration-300 transform ${
           isRolling ? 'scale-75 opacity-50 animate-pulse' : 'scale-100 opacity-100'
