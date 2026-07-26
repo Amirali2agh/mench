@@ -207,6 +207,7 @@ export function useMenschSocket() {
   }, [sendAction]);
   const nextRound = useCallback(() => sendAction({ action: 'next_round' }), [sendAction]);
   const restartGame = useCallback(() => sendAction({ action: 'restart_game' }), [sendAction]);
+  const passTurn = useCallback(() => sendAction({ action: 'pass_turn' }), [sendAction]);
   const leaveGame = useCallback(() => {
     disconnectAll();
     setGameState(null);
@@ -257,6 +258,7 @@ export function useMenschSocket() {
     nextRound,
     restartGame,
     leaveGame,
+    passTurn,
     sendChatMessage,
     directRoomId,
   };

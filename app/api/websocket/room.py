@@ -173,6 +173,17 @@ async def websocket_room_endpoint(
                             "player_name": sender_name,
                             "message": chat_text,
                         })
+                
+                # Action 6: Auto-pass turn on timeout
+                elif action == "pass_turn":
+                    state = await GameService.get_game(room_id)
+                    if state and state["status"] == "playing":
+                        state = GameService._rotate_turn(state)
+                        await GameService.save_game(room_id, state)
+                        await room_manager.broadcast(room_id, {
+                            "type": "sync_state",
+                            "game": state
+                        })
                         
             except json.JSONDecodeError:
                 # Handle malformed client JSON without dropping the connection

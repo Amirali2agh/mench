@@ -37,6 +37,7 @@ export function App() {
     nextRound,
     restartGame,
     leaveGame,
+    passTurn,
     sendChatMessage,
   } = useMenschSocket();
 
@@ -52,6 +53,7 @@ export function App() {
           onLeave={leaveGame}
           chatMessages={chatMessages}
           onSendChat={sendChatMessage}
+          onPassTurn={passTurn}
         />
       );
     }

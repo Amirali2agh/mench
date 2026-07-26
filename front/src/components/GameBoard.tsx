@@ -16,6 +16,7 @@ interface GameBoardProps {
   onLeave: () => void;
   chatMessages: ChatMessage[];
   onSendChat: (text: string) => void;
+  onPassTurn: () => void;
 }
 
 const PlayerAvatar: React.FC<{ name: string; avatar?: string }> = ({ name, avatar }) => {
@@ -41,6 +42,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   onLeave,
   chatMessages,
   onSendChat,
+  onPassTurn,
 }) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -108,11 +110,56 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   // Stop spinning when the WebSocket confirms the roll result
   useEffect(() => {
     if (isSpinning && gameState.dice !== null) {
-      // Minimum spin time for visual effect
       const timer = setTimeout(() => setIsSpinning(false), 400);
       return () => clearTimeout(timer);
     }
   }, [isSpinning, gameState.dice]);
+
+  // ═══ 45s turn timer ═══
+  const TURN_TIMEOUT = 45;
+  const [turnTimeLeft, setTurnTimeLeft] = useState(TURN_TIMEOUT);
+  const turnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hasActedRef = useRef(false);
+
+  // Reset timer when the active turn changes
+  useEffect(() => {
+    setTurnTimeLeft(TURN_TIMEOUT);
+    hasActedRef.current = false;
+  }, [gameState?.current_turn, gameState?.status]);
+
+  // Countdown tick
+  useEffect(() => {
+    // Only run timer when game is playing and it's someone's turn
+    if (gameState?.status !== 'playing') return;
+
+    turnTimerRef.current = setInterval(() => {
+      setTurnTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (turnTimerRef.current) clearInterval(turnTimerRef.current);
+          // If it's the local player's turn, auto-pass
+          if (!hasActedRef.current) {
+            onPassTurn();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (turnTimerRef.current) {
+        clearInterval(turnTimerRef.current);
+        turnTimerRef.current = null;
+      }
+    };
+  }, [gameState?.current_turn, gameState?.status, onPassTurn]);
+
+  // Mark that the player has acted (rolled or moved)
+  useEffect(() => {
+    if (gameState?.dice_rolled || gameState?.dice !== null) {
+      hasActedRef.current = true;
+    }
+  }, [gameState?.dice_rolled, gameState?.dice]);
 
   const getColorForVisualIdx = (vIdx: number): string => {
     const map: Record<number, string> = {
@@ -192,7 +239,28 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
     return (
       <div className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? 'ring-2 ring-amber-400/60' : ''}`}>
-        <div className="relative">
+        <div className="relative w-[42px] h-[42px] flex items-center justify-center">
+          {/* Turn countdown ring */}
+          {isTurn && (
+            <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 42 42">
+              <circle
+                cx="21" cy="21" r="19"
+                fill="none"
+                stroke="rgba(251,191,36,0.25)"
+                strokeWidth="2.5"
+              />
+              <circle
+                cx="21" cy="21" r="19"
+                fill="none"
+                stroke="#F59E0B"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 19}`}
+                strokeDashoffset={`${(1 - turnTimeLeft / 45) * 2 * Math.PI * 19}`}
+                className="transition-all duration-1000 ease-linear"
+              />
+            </svg>
+          )}
           <PlayerAvatar name={p.name} avatar={p.avatar} />
           <div className="absolute -bottom-0.5 -right-0.5 w-[10px] h-[10px] rounded-full border-2 border-white" style={{ backgroundColor: color }} />
         </div>

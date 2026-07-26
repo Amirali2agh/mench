@@ -80,6 +80,7 @@ export type ServerMessage = MatchFoundMessage | SyncStateMessage;
  */
 export type ClientAction =
   | { action: 'roll_dice' }
-  | { action: 'move_piece'; piece_index: number } // piece_index is between 0 and pieces_count - 1
+  | { action: 'move_piece'; piece_index: number }
   | { action: 'next_round' }
-  | { action: 'restart_game' };
+  | { action: 'restart_game' }
+  | { action: 'pass_turn' };
