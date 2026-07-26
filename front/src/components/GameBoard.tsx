@@ -441,7 +441,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     : ''
                 }`}
               >
-                <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.9]" />
+                <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.4]" />
               </button>
             </div>
 
