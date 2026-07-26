@@ -31,23 +31,6 @@ const PlayerAvatar: React.FC<{ name: string; avatar?: string }> = ({ name, avata
   );
 };
 
-const SmallDice: React.FC<{ value: number | null }> = ({ value }) => {
-  const val = value || 1;
-  const dotPositions: Record<number, number[]> = {
-    1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
-  };
-  const active = dotPositions[val] || [];
-  return (
-    <div className="w-[36px] h-[36px] bg-white rounded-[10px] shadow-[0_2px_8px_rgba(0,0,0,0.08)] grid grid-cols-3 grid-rows-3 gap-[2px] p-[5px] flex-shrink-0">
-      {Array.from({ length: 9 }).map((_, i) => (
-        <div key={i} className="flex items-center justify-center">
-          {active.includes(i) && <div className="w-[4px] h-[4px] rounded-full bg-[#1A1A1A]" />}
-        </div>
-      ))}
-    </div>
-  );
-};
-
 // Star icon for safe cells
 
 export const GameBoard: React.FC<GameBoardProps> = ({
@@ -197,7 +180,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const p = players[playerIdx];
     const vIdx = getVisualIdx(playerIdx);
     const color = getColorForVisualIdx(vIdx);
-    const diceVal = current_turn === playerIdx ? gameState.dice : (pieces[p.id]?.[0] !== undefined ? Math.min(6, Math.max(1, (pieces[p.id][0] + 1) % 7)) : null);
     const isTurn = current_turn === playerIdx;
 
     return (
@@ -210,7 +192,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           <span className="text-[13px] font-semibold text-[#2C2C2C] whitespace-nowrap">{p.name}</span>
           <div className="flex items-center gap-1">
             <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: color }} />
-            <SmallDice value={diceVal} />
           </div>
         </div>
       </div>
