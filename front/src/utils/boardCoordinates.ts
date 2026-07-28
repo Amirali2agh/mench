@@ -49,31 +49,25 @@ export const homeCoords: Record<number, GridCoord[]> = {
 
 export const goalCoord: GridCoord = { r: 5, c: 5 };
 
-// Starting offsets on the circular track for each player.
-// Computed dynamically as (trackLength / playerCount) * playerIndex
-// to stay consistent with the backend's capture logic.
-// Colored start cells on the board:
-//   Blue  (vIdx=1): (0,6)  ≡ circularTrack[0]  ← player idx 0 in 4p
-//   Yellow(vIdx=3): (6,10) ≡ circularTrack[10] ← player idx 1 in 4p
-//   Red   (vIdx=0): (10,4) ≡ circularTrack[20] ← player idx 2 in 4p
-//   Green (vIdx=2): (4,0)  ≡ circularTrack[30] ← player idx 3 in 4p
+// Starting offsets on the circular track for each visual corner.
+// Each color's start cell is at its matching offset in the 40-cell track:
+//   Red    (vIdx=0): (10,4) ≡ circularTrack[20] ← offset 20
+//   Blue   (vIdx=1): (0,6)  ≡ circularTrack[0]  ← offset 0
+//   Green  (vIdx=2): (4,0)  ≡ circularTrack[30] ← offset 30
+//   Yellow (vIdx=3): (6,10) ≡ circularTrack[10] ← offset 10
+const START_OFFSETS: Record<number, number> = {
+  0: 20,  // قرمز
+  1: 0,   // آبی
+  2: 30,  // سبز
+  3: 10   // زرد
+};
 
-export function getOffsetForPlayer(playerIdx: number, playerCount: number): number {
-  return Math.floor(circularTrack.length / playerCount) * playerIdx;
-}
-
-export function getGridCoordinates(
-  vIdx: number,
-  pos: number,
-  pieceIdx: number,
-  playerCount: number = 4,
-  playerIdx: number = vIdx,
-): GridCoord {
+export function getGridCoordinates(vIdx: number, pos: number, pieceIdx: number): GridCoord {
   if (pos === -1) {
     return baseCoords[vIdx]?.[pieceIdx] || { r: 0, c: 0 };
   }
   if (pos >= 0 && pos <= 39) {
-    const offset = getOffsetForPlayer(playerIdx, playerCount);
+    const offset = START_OFFSETS[vIdx] || 0;
     const absolutePos = (pos + offset) % circularTrack.length;
     return circularTrack[absolutePos];
   }
