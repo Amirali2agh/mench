@@ -491,7 +491,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   if (rIdx === 0 && cIdx === 4) customBg = 'bg-[#277DA1]';
                   else if (rIdx === 6 && cIdx === 10) customBg = 'bg-[#F9C74F]';
                   else if (rIdx === 6 && cIdx === 0) customBg = 'bg-[#43AA8B]';
-                  else if (rIdx === 10 && cIdx === 6) customBg = 'bg-[#F94144]';
+                  else if (rIdx === 10 && cIdx === 4) customBg = 'bg-[#F94144]';
 
                   // Star cells on safe positions
                   // Check if this cell is a star position on the circular track
