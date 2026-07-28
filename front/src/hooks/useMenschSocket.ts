@@ -4,7 +4,7 @@
  * postMessage bridge to parent (porteghal-app), and direct room mode.
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { GameState, ServerMessage, ClientAction } from '../types';
+import { GameState, ServerMessage, ClientAction, GameInfoMessage } from '../types';
 import { sendToParent, getQueryParams, getWsBaseUrl, getHttpBaseUrl } from '../utils/bridge';
 
 // Connection state types for tracking the exact network status.
@@ -44,6 +44,7 @@ export function useMenschSocket() {
   const [error, setError] = useState<string | null>(null);
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<DisconnectedPlayerInfo | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [gameInfo, setGameInfo] = useState<GameInfoMessage | null>(null);
 
   const queueSocketRef = useRef<WebSocket | null>(null);
   const roomSocketRef = useRef<WebSocket | null>(null);
@@ -115,6 +116,17 @@ export function useMenschSocket() {
             timestamp: Date.now(),
           };
           setChatMessages((prev) => [...prev, chatMsg]);
+        } else if (message.type === 'game_info') {
+          setGameInfo(message);
+          // Update player info from porteghal-provided metadata
+          if (message.players) {
+            const playerMeta = message.players[String(message.player_num)];
+            if (playerMeta) {
+              _setPlayerId(playerMeta.id);
+              setPlayerName(playerMeta.name);
+              setPlayerAvatar(playerMeta.avatar);
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to parse room WebSocket message:', err);
@@ -261,5 +273,6 @@ export function useMenschSocket() {
     passTurn,
     sendChatMessage,
     directRoomId,
+    gameInfo,
   };
 }

@@ -68,11 +68,29 @@ export interface SyncStateMessage {
   game: GameState;          // The complete up-to-date state of the game
 }
 
+export interface PlayerMeta {
+  id: string;
+  name: string;
+  avatar: string;
+}
+
+/**
+ * Message schema received from the porteghal WebSocket endpoint /ws/game/{room_id}/{player_num}.
+ * Provides player metadata (names, avatars) from the porteghal platform.
+ */
+export interface GameInfoMessage {
+  type: 'game_info';
+  room_id: string;
+  player_num: number;
+  players: Record<string, PlayerMeta>;  // {"1": {id, name, avatar}, "2": {...}}
+  coin_bet?: number;
+}
+
 /**
  * Union type representing all possible server-to-client messages.
  * Makes handling incoming WebSocket payloads robust and type-safe.
  */
-export type ServerMessage = MatchFoundMessage | SyncStateMessage;
+export type ServerMessage = MatchFoundMessage | SyncStateMessage | GameInfoMessage;
 
 /**
  * Strongly typed payloads sent from the client to the server via Room WebSocket.
