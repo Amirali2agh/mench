@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     DISCONNECT_TIMEOUT: int = 60  # مدت زمان مجاز قطع اتصال (ثانیه)
     MATCHMAKING_TIMEOUT: int = 30  # مدت زمان انتظار در صف بازی (ثانیه)
     
+    # تنظیمات ادغام با Porteghal
+    PORTEGHAL_API_URL: str = "http://localhost:8090"
+    PORTEGHAL_API_KEY: str = ""
+    ALLOWED_CORS_ORIGINS: str = "*"
+
     # پیکربندی نحوه خواندن تنظیمات
     model_config = SettingsConfigDict(
         env_file=".env",

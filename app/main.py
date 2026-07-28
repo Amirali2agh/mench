@@ -10,10 +10,16 @@ app = FastAPI(
     debug=settings.DEBUG
 )
 
-# Set up CORS middleware to allow cross-origin requests from the frontend (React app)
+# Set up CORS middleware to allow cross-origin requests
+origins_setting = settings.ALLOWED_CORS_ORIGINS
+if origins_setting == "*":
+    cors_origins = ["*"]
+else:
+    cors_origins = [o.strip() for o in origins_setting.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust in production to only allow trusted domains
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
