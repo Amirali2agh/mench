@@ -3,6 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.redis_client import redis_client
+from app.services.game_service import GameService
 
 router = APIRouter(prefix="/api")
 
@@ -15,8 +16,9 @@ class CreateRoomRequest(BaseModel):
     player2_id: str = ""
     player2_name: str = ""
     player2_avatar: str = ""
-    player_count: int = 4
+    player_count: int = 2
     pieces_count: int = 4
+    coin_bet: int = 0
 
 
 class RoomJoinResponse(BaseModel):
@@ -28,6 +30,13 @@ class RoomJoinResponse(BaseModel):
     player2_name: str
     player2_avatar: str
     status: str
+    coin_bet: int = 0
+
+
+class JoinRoomRequest(BaseModel):
+    player_id: str
+    player_name: str = ""
+    player_avatar: str = ""
 
 
 def _room_meta_key(room_id: str) -> str:
@@ -58,8 +67,20 @@ async def create_room(req: CreateRoomRequest):
             "2": {"id": req.player2_id, "name": req.player2_name, "avatar": req.player2_avatar},
         },
         "status": "playing" if req.player2_id else "waiting",
+        "coin_bet": req.coin_bet,
     }
     await redis_client.set(_room_meta_key(room_id), json.dumps(room_data))
+
+    # Pre-create game state if both players are provided (porteghal direct room mode)
+    if req.player1_id and req.player2_id:
+        p1_meta = {"id": req.player1_id, "name": req.player1_name, "avatar": req.player1_avatar}
+        p2_meta = {"id": req.player2_id, "name": req.player2_name, "avatar": req.player2_avatar}
+        await GameService.create_game_for_players(
+            room_id, p1_meta, p2_meta,
+            pieces_count=req.pieces_count,
+            player_count=req.player_count,
+            coin_bet=req.coin_bet,
+        )
 
     return RoomJoinResponse(
         room_id=room_id,
@@ -70,6 +91,7 @@ async def create_room(req: CreateRoomRequest):
         player2_name=req.player2_name or "",
         player2_avatar=req.player2_avatar,
         status=room_data["status"],
+        coin_bet=req.coin_bet,
     )
 
 
@@ -93,11 +115,12 @@ async def get_room(room_id: str):
         player2_name=p2.get("name", ""),
         player2_avatar=p2.get("avatar", ""),
         status=room.get("status", "waiting"),
+        coin_bet=room.get("coin_bet", 0),
     )
 
 
 @router.post("/rooms/{room_id}/join")
-async def join_room(room_id: str, player_id: str, player_name: str = "", player_avatar: str = ""):
+async def join_room(room_id: str, req: JoinRoomRequest):
     data = await redis_client.get(_room_meta_key(room_id))
     if not data:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -107,18 +130,31 @@ async def join_room(room_id: str, player_id: str, player_name: str = "", player_
 
     # Check if this player already in room
     for num, mp in meta.items():
-        if mp.get("id") == player_id:
+        if mp.get("id") == req.player_id:
             return {"room_id": room_id, "player_num": int(num), "status": room.get("status")}
 
     # Assign to player 2 slot
     p2 = meta.get("2", {})
     if not p2.get("id"):
-        meta["2"] = {"id": player_id, "name": player_name, "avatar": player_avatar}
-        room["players"] = [meta["1"]["id"], player_id]
+        meta["2"] = {"id": req.player_id, "name": req.player_name, "avatar": req.player_avatar}
+        room["players"] = [meta["1"]["id"], req.player_id]
         room["status"] = "playing"
         await redis_client.set(_room_meta_key(room_id), json.dumps(room))
         # Also set player meta for the game
-        await redis_client.set(f"player:{player_id}:meta", json.dumps(meta["2"]))
+        await redis_client.set(f"player:{req.player_id}:meta", json.dumps(meta["2"]))
+
+        # Pre-create game state now that both players are present
+        p1_meta = meta["1"]
+        p2_meta = meta["2"]
+        pieces_count = int(room.get("pieces_count", 4))
+        player_count = int(room.get("player_count", 2))
+        await GameService.create_game_for_players(
+            room_id, p1_meta, p2_meta,
+            pieces_count=pieces_count,
+            player_count=player_count,
+            coin_bet=room.get("coin_bet", 0),
+        )
+
         return {"room_id": room_id, "player_num": 2, "status": "playing"}
 
     raise HTTPException(status_code=400, detail="Room is full")

@@ -12,6 +12,25 @@ class GameService:
     """
 
     @staticmethod
+    async def create_game_for_players(
+        room_id: str,
+        player1_meta: dict,
+        player2_meta: dict,
+        pieces_count: int = 4,
+        player_count: int = 2,
+        coin_bet: int = 0,
+    ) -> dict:
+        """
+        Pre-create game state with both players populated (for porteghal direct room mode).
+        Unlike create_game which accepts a flexible list, this ensures exactly 2 players.
+        """
+        players = [player1_meta, player2_meta]
+        state = await GameService.create_game(room_id, players, pieces_count, player_count)
+        state["coin_bet"] = coin_bet
+        await GameService.save_game(room_id, state)
+        return state
+
+    @staticmethod
     async def create_game(room_id: str, players: list[dict], pieces_count: int = 4, player_count: int | None = None) -> dict:
         if player_count is None:
             player_count = len(players)
