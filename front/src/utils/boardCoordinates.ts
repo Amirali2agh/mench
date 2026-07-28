@@ -6,8 +6,13 @@ export interface GridCoord {
   c: number;
 }
 
+// 40-cell circular track (0-39), matching the %40 modulus used everywhere.
+// Path goes clockwise around the 11x11 board.
+// Added missing cell (4,6) so that each player's colored start cell
+// aligns with offsets 0, 10, 20, 30 — consistent with the backend.
 export const circularTrack: GridCoord[] = [
   { r: 0, c: 6 }, { r: 1, c: 6 }, { r: 2, c: 6 }, { r: 3, c: 6 },
+  { r: 4, c: 6 }, /* ← added missing cell — connects (3,6)→(4,7) */
   { r: 4, c: 7 }, { r: 4, c: 8 }, { r: 4, c: 9 }, { r: 4, c: 10 },
   { r: 5, c: 10 },
   { r: 6, c: 10 }, { r: 6, c: 9 }, { r: 6, c: 8 }, { r: 6, c: 7 }, { r: 6, c: 6 },
@@ -22,7 +27,8 @@ export const circularTrack: GridCoord[] = [
 ];
 
 // Safe cells (star positions) on the circular track
-export const safeTrackPositions = new Set([0, 8, 13, 18, 23, 28, 33, 38]);
+// Shifted by +1 from indices >=4 to account for the inserted cell.
+export const safeTrackPositions = new Set([0, 9, 14, 19, 24, 29, 34, 39]);
 
 // Base yard piece positions for the reference layout:
 // TL=green(v2), TR=blue(v1), BL=red(v0), BR=yellow(v3)
@@ -43,21 +49,32 @@ export const homeCoords: Record<number, GridCoord[]> = {
 
 export const goalCoord: GridCoord = { r: 5, c: 5 };
 
-// Starting offsets on the circular track for each player
-const START_OFFSETS: Record<number, number> = {
-  0: 19,  // قرمز (پایین-چپ) از خانه ۱۹ شروع می‌کند
-  1: 0,   // آبی (بالا-راست) از خانه ۰
-  2: 29,  // سبز (بالا-چپ) از خانه ۲۹
-  3: 9    // زرد (پایین-راست) از خانه ۹
-};
+// Starting offsets on the circular track for each player.
+// Computed dynamically as (trackLength / playerCount) * playerIndex
+// to stay consistent with the backend's capture logic.
+// Colored start cells on the board:
+//   Blue  (vIdx=1): (0,6)  ≡ circularTrack[0]  ← player idx 0 in 4p
+//   Yellow(vIdx=3): (6,10) ≡ circularTrack[10] ← player idx 1 in 4p
+//   Red   (vIdx=0): (10,4) ≡ circularTrack[20] ← player idx 2 in 4p
+//   Green (vIdx=2): (4,0)  ≡ circularTrack[30] ← player idx 3 in 4p
 
-export function getGridCoordinates(vIdx: number, pos: number, pieceIdx: number): GridCoord {
+export function getOffsetForPlayer(playerIdx: number, playerCount: number): number {
+  return Math.floor(circularTrack.length / playerCount) * playerIdx;
+}
+
+export function getGridCoordinates(
+  vIdx: number,
+  pos: number,
+  pieceIdx: number,
+  playerCount: number = 4,
+  playerIdx: number = vIdx,
+): GridCoord {
   if (pos === -1) {
     return baseCoords[vIdx]?.[pieceIdx] || { r: 0, c: 0 };
   }
   if (pos >= 0 && pos <= 39) {
-    const offset = START_OFFSETS[vIdx] || 0;
-    const absolutePos = (pos + offset) % 40;
+    const offset = getOffsetForPlayer(playerIdx, playerCount);
+    const absolutePos = (pos + offset) % circularTrack.length;
     return circularTrack[absolutePos];
   }
   if (pos >= 40 && pos <= 43) {
@@ -85,13 +102,14 @@ export function getArrowRotation(coord: GridCoord): string {
 }
 
 // Which player color index owns each star position for coloring the star
+// Shifted by +1 from indices >=4 to account for the inserted cell.
 export const starColorMap: Record<number, string> = {
   0: 'text-blue-500',
-  8: 'text-yellow-500',
-  13: 'text-yellow-500',
-  18: 'text-red-500',
-  23: 'text-red-500',
-  28: 'text-green-500',
-  33: 'text-green-500',
-  38: 'text-blue-500',
+  9: 'text-yellow-500',
+  14: 'text-yellow-500',
+  19: 'text-red-500',
+  24: 'text-red-500',
+  29: 'text-green-500',
+  34: 'text-green-500',
+  39: 'text-blue-500',
 };

@@ -72,15 +72,21 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const isMyTurn = current_turn === localPlayerIdx;
 
   const getVisualIdx = (backendIdx: number) => {
+    // Each backend player index maps to a visual corner whose offset
+    // matches the backend's dynamic offset: (trackLength / playerCount) * idx
+    //   idx 0 → offset  0 → Blue  cell (0,6)  → vIdx 1
+    //   idx 1 → offset 10 → Yellow cell (6,10) → vIdx 3
+    //   idx 2 → offset 20 → Red   cell (10,4) → vIdx 0
+    //   idx 3 → offset 30 → Green cell (4,0)  → vIdx 2
     if (player_count === 2) {
-      if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 3;
+      if (backendIdx === 0) return 1;  // offset  0 → Blue
+      if (backendIdx === 1) return 0;  // offset 20 → Red
     }
     if (player_count === 4) {
-      if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 1;
-      if (backendIdx === 2) return 3;
-      if (backendIdx === 3) return 2;
+      if (backendIdx === 0) return 1;  // offset  0 → Blue
+      if (backendIdx === 1) return 3;  // offset 10 → Yellow
+      if (backendIdx === 2) return 0;  // offset 20 → Red
+      if (backendIdx === 3) return 2;  // offset 30 → Green
     }
     return backendIdx;
   };
@@ -94,7 +100,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       const realPos = playerPieces[i] !== undefined ? playerPieces[i] : -1;
       const key = `${player.id}-${i}`;
       const visualPos = visualPositions[key] ?? realPos;
-      const coord = getGridCoordinates(vIdx, visualPos, i);
+      const coord = getGridCoordinates(vIdx, visualPos, i, player_count, playerIdx);
       allRenderedPieces.push({ playerIdx, vIdx, playerId: player.id, pieceIdx: i, pos: realPos, visualPos, coord });
     }
   });
