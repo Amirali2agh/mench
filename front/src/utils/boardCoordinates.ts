@@ -45,10 +45,10 @@ export const goalCoord: GridCoord = { r: 5, c: 5 };
 
 // Starting offsets on the circular track for each player
 const START_OFFSETS: Record<number, number> = {
-  0: 20,  // قرمز (پایین-چپ) از خانه ۲۰ شروع می‌کند
+  0: 19,  // قرمز (پایین-چپ) از خانه ۱۹ شروع می‌کند
   1: 0,   // آبی (بالا-راست) از خانه ۰
-  2: 30,  // سبز (بالا-چپ) از خانه ۳۰
-  3: 10   // زرد (پایین-راست) از خانه ۱۰
+  2: 29,  // سبز (بالا-چپ) از خانه ۲۹
+  3: 9    // زرد (پایین-راست) از خانه ۹
 };
 
 export function getGridCoordinates(vIdx: number, pos: number, pieceIdx: number): GridCoord {
