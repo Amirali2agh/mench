@@ -48,6 +48,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // ═══ Step-by-step piece animation state — MUST be before early return ═══
+  const realPositionsRef = useRef<Record<string, number>>({});
+  const [visualPositions, setVisualPositions] = useState<Record<string, number>>({});
+  const animTimersRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  const [animInitialized, setAnimInitialized] = useState(false);
+
   // Auto-scroll chat to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -143,15 +149,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     ro.observe(board);
     return () => ro.disconnect();
   }, []);
-
-  // ═══ Step-by-step piece animation ═══
-  // Tracks the last known server position per piece (key = `${playerId}-${pieceIdx}`)
-  const realPositionsRef = useRef<Record<string, number>>({});
-  // Tracks the visual position for rendering (lags behind real during animation)
-  const [visualPositions, setVisualPositions] = useState<Record<string, number>>({});
-  // Interval handles for in-progress step animations
-  const animTimersRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
-  const [animInitialized, setAnimInitialized] = useState(false);
 
   // Detect piece movements from the server and trigger step-by-step animation
   useEffect(() => {
