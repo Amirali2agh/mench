@@ -601,17 +601,27 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               {isMyTurn && !gameState.dice_rolled && !isSpinning && (
                 <div className="absolute inset-[-6px] rounded-[28px] bg-amber-400/20 animate-pulse" />
               )}
-              <button
-                onClick={handleDiceClick}
-                disabled={!isMyTurn || isSpinning || gameState.dice_rolled}
-                className={`w-[76px] h-[76px] bg-white rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.8)] border-2 border-[#E6D5B8] flex items-center justify-center ${
-                  isMyTurn && !gameState.dice_rolled && !isSpinning
-                    ? 'active:scale-95 transition-transform cursor-pointer'
-                    : ''
-                }`}
-              >
-                <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.4]" />
-              </button>
+              {isMyTurn ? (
+                <button
+                  onClick={handleDiceClick}
+                  disabled={!isMyTurn || isSpinning || gameState.dice_rolled}
+                  className={`w-[76px] h-[76px] bg-white rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.8)] border-2 border-[#E6D5B8] flex items-center justify-center ${
+                    isMyTurn && !gameState.dice_rolled && !isSpinning
+                      ? 'active:scale-95 transition-transform cursor-pointer'
+                      : ''
+                  }`}
+                >
+                  <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.4]" />
+                </button>
+              ) : gameState.dice !== null ? (
+                /* Show rolled result for non-active players */
+                <div className="w-[56px] h-[56px] bg-white/70 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-[#E6D5B8]/50 flex items-center justify-center opacity-70">
+                  <Dice value={gameState.dice} isRolling={false} className="scale-[1.0]" />
+                </div>
+              ) : (
+                /* Empty placeholder to keep layout */
+                <div className="w-[56px] h-[56px]" />
+              )}
             </div>
 
             <div>{brPlayer >= 0 && renderPlayerPanel(brPlayer)}</div>
