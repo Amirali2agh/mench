@@ -74,7 +74,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const getVisualIdx = (backendIdx: number) => {
     if (player_count === 2) {
       if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 3;
+      if (backendIdx === 1) return 1;
     }
     if (player_count === 4) {
       if (backendIdx === 0) return 0;
