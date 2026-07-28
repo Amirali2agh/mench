@@ -1,7 +1,7 @@
 // front/src/components/GameBoard.tsx
 // Complete visual redesign matching the reference Ludo game UI
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { GameState } from '../types';
 import { playerColors } from '../utils/colors';
 import { getGridCoordinates, getArrowRotation, GridCoord, safeTrackPositions, circularTrack } from '../utils/boardCoordinates';
@@ -120,6 +120,27 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [turnTimeLeft, setTurnTimeLeft] = useState(TURN_TIMEOUT);
   const turnTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasActedRef = useRef(false);
+
+  // ═══ Board measurement for piece animation ═══
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [cellPitch, setCellPitch] = useState(0);
+
+  // Measure the CSS Grid's cell pitch (width of one cell including gap share)
+  // so we can absolutely-position pieces and animate them with CSS transitions.
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const measure = () => {
+      const grid = board.querySelector('.grid');
+      if (!grid) return;
+      const rect = grid.getBoundingClientRect();
+      setCellPitch(rect.width / 11);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(board);
+    return () => ro.disconnect();
+  }, []);
 
   // Reset timer when the active turn changes
   useEffect(() => {
@@ -319,8 +340,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center gap-1 min-h-0">
           
           {/* Board */}
-          <div className="w-[min(88vw,78vh)] aspect-square max-w-[480px] bg-[#FAF4E6] rounded-[clamp(16px,3vmin,28px)] p-[clamp(8px,1.5vmin,16px)] shadow-[0_16px_36px_rgba(0,0,0,0.08),inset_0_2px_6px_rgba(255,255,255,0.6)] border-[clamp(2px,0.4vmin,4px)] border-[#E8D3B0] flex items-center justify-center">
-            <div className="grid grid-cols-11 grid-rows-11 gap-[0.35vmin] w-full h-full relative">
+          <div ref={boardRef} className="relative w-[min(88vw,78vh)] aspect-square max-w-[480px] bg-[#FAF4E6] rounded-[clamp(16px,3vmin,28px)] p-[clamp(8px,1.5vmin,16px)] shadow-[0_16px_36px_rgba(0,0,0,0.08),inset_0_2px_6px_rgba(255,255,255,0.6)] border-[clamp(2px,0.4vmin,4px)] border-[#E8D3B0] flex items-center justify-center">
+            <div className="relative w-full h-full">
+              <div className="grid grid-cols-11 grid-rows-11 gap-[0.35vmin] w-full h-full relative">
               
               {/* Yards */}
               <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-[0.3vmin]">{renderBaseYard(2)}</div>  {/* TL: green */}
@@ -423,50 +445,60 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                 });
               })}
 
-              {/* Dice in center */}
-              {/* Game pieces - only render pieces on the track (yard pieces rendered in renderBaseYard) */}
-              {allRenderedPieces.filter(p => p.pos >= 0).map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
-                const theme = playerColors[vIdx];
-                if (!theme) return null;
-                const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
-
-                const piecesInSameCoord = allRenderedPieces.filter(
-                  (p) => p.coord.r === coord.r && p.coord.c === coord.c
-                );
-                const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
-                  (p) => p.playerId === pId && p.pieceIdx === pieceIdx
-                );
-
-                const transformStyle = piecesInSameCoord.length > 1
-                  ? {
-                      transform: `translate(${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 5}px, ${(pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * -5}px)`,
-                      zIndex: 20 + pieceIndexInSameCoord,
-                    }
-                  : { zIndex: 10 };
-
-                const color = getColorForVisualIdx(vIdx);
-
-                return (
-                  <div
-                    key={`piece-${pId}-${pieceIdx}`}
-                    style={{
-                      gridRowStart: coord.r + 1,
-                      gridColumnStart: coord.c + 1,
-                      ...transformStyle,
-                    }}
-                    onClick={() => isMovable && onMovePiece(pieceIdx)}
-                    className={`w-[80%] h-[80%] place-self-center rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center relative transition-all duration-300 ${
-                      isMovable ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-2 z-30 scale-105' : ''
-                    }`}
-                  >
-                    <div className="w-[70%] h-[70%] rounded-full relative overflow-hidden" style={{ backgroundColor: color }}>
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent rounded-full" />
-                    </div>
-                    <div className="absolute top-[8%] left-[15%] w-[30%] h-[20%] rounded-full bg-white/60 blur-[1px] rotate-[-20deg]" />
-                  </div>
-                );
-              })}
             </div>
+
+            {/* ═══ Animated piece overlay ═══ */}
+            {cellPitch > 0 && allRenderedPieces.filter(p => p.pos >= 0).length > 0 && (
+              <div className="absolute inset-0 z-20" style={{ pointerEvents: 'none' }}>
+                {allRenderedPieces.filter(p => p.pos >= 0).map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
+                  const theme = playerColors[vIdx];
+                  if (!theme) return null;
+                  const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
+
+                  const piecesInSameCoord = allRenderedPieces.filter(
+                    (p) => p.coord.r === coord.r && p.coord.c === coord.c
+                  );
+                  const pieceIndexInSameCoord = piecesInSameCoord.findIndex(
+                    (p) => p.playerId === pId && p.pieceIdx === pieceIdx
+                  );
+
+                  const pieceSize = cellPitch * 0.8;
+                  const overlapOffset = piecesInSameCoord.length > 1
+                    ? (pieceIndexInSameCoord - (piecesInSameCoord.length - 1) / 2) * 5
+                    : 0;
+
+                  const color = getColorForVisualIdx(vIdx);
+
+                  return (
+                    <div
+                      key={`piece-${pId}-${pieceIdx}`}
+                      style={{
+                        position: 'absolute',
+                        left: `${coord.c * cellPitch + (cellPitch - pieceSize) / 2 + overlapOffset}px`,
+                        top: `${coord.r * cellPitch + (cellPitch - pieceSize) / 2 - overlapOffset}px`,
+                        width: `${pieceSize}px`,
+                        height: `${pieceSize}px`,
+                        transition: 'left 0.35s cubic-bezier(0.4, 0, 0.2, 1), top 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                        zIndex: 20 + pieceIndexInSameCoord,
+                        pointerEvents: 'auto',
+                      }}
+                      onClick={() => isMovable && onMovePiece(pieceIdx)}
+                      className={`rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center ${
+                        isMovable ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-2 z-30 scale-105' : ''
+                      }`}
+                    >
+                      <div className="w-[70%] h-[70%] rounded-full relative overflow-hidden" style={{ backgroundColor: color }}>
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent rounded-full" />
+                      </div>
+                      <div className="absolute top-[8%] left-[15%] w-[30%] h-[20%] rounded-full bg-white/60 blur-[1px] rotate-[-20deg]" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            </div> {/* end relative grid wrapper */}
+
           </div>
 
           {/* Bottom row: players + main dice */}
