@@ -488,10 +488,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
                   // Starting position markers (colored cells where players enter the track)
                   // Blue start: (0,6), Yellow start: (6,10), Green start: (4,0), Red start: (10,4)
-                  if (rIdx === 0 && cIdx === 6) customBg = 'bg-[#277DA1]';
+                  if (rIdx === 0 && cIdx === 4) customBg = 'bg-[#277DA1]';
                   else if (rIdx === 6 && cIdx === 10) customBg = 'bg-[#F9C74F]';
-                  else if (rIdx === 4 && cIdx === 0) customBg = 'bg-[#43AA8B]';
-                  else if (rIdx === 10 && cIdx === 4) customBg = 'bg-[#F94144]';
+                  else if (rIdx === 6 && cIdx === 0) customBg = 'bg-[#43AA8B]';
+                  else if (rIdx === 10 && cIdx === 6) customBg = 'bg-[#F94144]';
 
                   // Star cells on safe positions
                   // Check if this cell is a star position on the circular track
