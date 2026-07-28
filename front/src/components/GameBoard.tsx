@@ -79,15 +79,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return backendIdx;
   };
 
-  const allRenderedPieces: { playerIdx: number; vIdx: number; playerId: string; pieceIdx: number; pos: number; coord: GridCoord }[] = [];
+  const allRenderedPieces: { playerIdx: number; vIdx: number; playerId: string; pieceIdx: number; pos: number; visualPos: number; coord: GridCoord }[] = [];
   players.forEach((player, playerIdx) => {
     if (!player) return;
     const vIdx = getVisualIdx(playerIdx);
     const playerPieces = pieces[player.id] || [];
     for (let i = 0; i < (pieces_count || 4); i++) {
-      const pos = playerPieces[i] !== undefined ? playerPieces[i] : -1;
-      const coord = getGridCoordinates(vIdx, pos, i);
-      allRenderedPieces.push({ playerIdx, vIdx, playerId: player.id, pieceIdx: i, pos, coord });
+      const realPos = playerPieces[i] !== undefined ? playerPieces[i] : -1;
+      const key = `${player.id}-${i}`;
+      const visualPos = visualPositions[key] ?? realPos;
+      const coord = getGridCoordinates(vIdx, visualPos, i);
+      allRenderedPieces.push({ playerIdx, vIdx, playerId: player.id, pieceIdx: i, pos: realPos, visualPos, coord });
     }
   });
 
@@ -140,6 +142,97 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const ro = new ResizeObserver(measure);
     ro.observe(board);
     return () => ro.disconnect();
+  }, []);
+
+  // ═══ Step-by-step piece animation ═══
+  // Tracks the last known server position per piece (key = `${playerId}-${pieceIdx}`)
+  const realPositionsRef = useRef<Record<string, number>>({});
+  // Tracks the visual position for rendering (lags behind real during animation)
+  const [visualPositions, setVisualPositions] = useState<Record<string, number>>({});
+  // Interval handles for in-progress step animations
+  const animTimersRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
+  const [animInitialized, setAnimInitialized] = useState(false);
+
+  // Detect piece movements from the server and trigger step-by-step animation
+  useEffect(() => {
+    if (!gameState?.pieces || !players.length) return;
+
+    // First load — initialise visual positions to match server without animation
+    if (!animInitialized) {
+      const initial: Record<string, number> = {};
+      players.forEach((player) => {
+        if (!player) return;
+        const playerPieces = pieces[player.id] || [];
+        for (let i = 0; i < (pieces_count || 4); i++) {
+          const key = `${player.id}-${i}`;
+          const pos = playerPieces[i] !== undefined ? playerPieces[i] : -1;
+          initial[key] = pos;
+          realPositionsRef.current[key] = pos;
+        }
+      });
+      setVisualPositions(initial);
+      setAnimInitialized(true);
+      return;
+    }
+
+    // Collect moved pieces
+    const moves: Array<{ key: string; from: number; to: number }> = [];
+    players.forEach((player) => {
+      if (!player) return;
+      const playerPieces = pieces[player.id] || [];
+      for (let i = 0; i < (pieces_count || 4); i++) {
+        const newPos = playerPieces[i] !== undefined ? playerPieces[i] : -1;
+        const key = `${player.id}-${i}`;
+        const oldPos = realPositionsRef.current[key];
+        if (oldPos !== undefined && oldPos !== newPos) {
+          moves.push({ key, from: oldPos, to: newPos });
+        }
+      }
+    });
+
+    // Start step-by-step animations
+    for (const { key, from, to } of moves) {
+      if (from >= 0 && to > from) {
+        // Forward movement on the track/home stretch — animate one cell at a time
+        const steps = to - from;
+        // Cancel any stale animation for this piece
+        if (animTimersRef.current[key]) {
+          clearInterval(animTimersRef.current[key]);
+        }
+        // Set visual position to the starting cell
+        setVisualPositions((prev) => ({ ...prev, [key]: from }));
+        let currentStep = 0;
+        animTimersRef.current[key] = setInterval(() => {
+          currentStep++;
+          const stepPos = from + currentStep;
+          setVisualPositions((prev) => ({ ...prev, [key]: stepPos }));
+          if (currentStep >= steps) {
+            clearInterval(animTimersRef.current[key]);
+            delete animTimersRef.current[key];
+          }
+        }, 160);
+      } else {
+        // Yard → track, capture back to yard, or any backward move — snap immediately
+        setVisualPositions((prev) => ({ ...prev, [key]: to }));
+      }
+    }
+
+    // Persist the new server positions
+    players.forEach((player) => {
+      if (!player) return;
+      const playerPieces = pieces[player.id] || [];
+      for (let i = 0; i < (pieces_count || 4); i++) {
+        const key = `${player.id}-${i}`;
+        realPositionsRef.current[key] = playerPieces[i] !== undefined ? playerPieces[i] : -1;
+      }
+    });
+  }, [gameState?.pieces]);
+
+  // Cleanup all animation timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(animTimersRef.current).forEach(clearInterval);
+    };
   }, []);
 
   // Reset timer when the active turn changes
@@ -448,9 +541,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </div>
 
             {/* ═══ Animated piece overlay ═══ */}
-            {cellPitch > 0 && allRenderedPieces.filter(p => p.pos >= 0).length > 0 && (
+            {cellPitch > 0 && allRenderedPieces.filter(p => p.visualPos >= 0).length > 0 && (
               <div className="absolute inset-0 z-20" style={{ pointerEvents: 'none' }}>
-                {allRenderedPieces.filter(p => p.pos >= 0).map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
+                {allRenderedPieces.filter(p => p.visualPos >= 0).map(({ vIdx, playerId: pId, pieceIdx, coord }) => {
                   const theme = playerColors[vIdx];
                   if (!theme) return null;
                   const isMovable = pId === localPlayerId && isPieceMovable(pieceIdx);
@@ -478,7 +571,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                         top: `${coord.r * cellPitch + (cellPitch - pieceSize) / 2 - overlapOffset}px`,
                         width: `${pieceSize}px`,
                         height: `${pieceSize}px`,
-                        transition: 'left 0.35s cubic-bezier(0.4, 0, 0.2, 1), top 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transition: 'left 0.15s ease, top 0.15s ease',
                         zIndex: 20 + pieceIndexInSameCoord,
                         pointerEvents: 'auto',
                       }}
