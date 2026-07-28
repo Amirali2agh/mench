@@ -17,6 +17,8 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - PORTEGHAL_API_URL=http://pocketbase:8090
+      - PORTEGHAL_API_KEY=${PORTEGHAL_API_KEY}
     # Ensure the web app waits until the Redis container is up and running
     depends_on:
       - redis
