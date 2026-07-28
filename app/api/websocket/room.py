@@ -256,28 +256,35 @@ async def websocket_game_endpoint(
     # Look up room meta
     meta_key = f"room:{room_id}:meta"
     raw = await redis_client.get(meta_key)
-    if not raw:
-        await websocket.close(code=4004, reason="Room not found")
-        return
 
-    room_meta = json.loads(raw)
-    players_meta = room_meta.get("players_meta", {})
-    player_meta = players_meta.get(player_num, {})
-    player_id = player_meta.get("id", f"player_{player_num}")
-    player_name = player_meta.get("name", f"بازیکن {player_num}")
+    if raw:
+        room_meta = json.loads(raw)
+        players_meta = room_meta.get("players_meta", {})
+        player_meta = players_meta.get(player_num, {})
+        player_id = player_meta.get("id", f"player_{player_num}")
+        player_name = player_meta.get("name", f"بازیکن {player_num}")
+        room_has_meta = True
+    else:
+        # No room meta — create fallback player data
+        player_id = f"player_{player_num}"
+        player_name = f"بازیکن {player_num}"
+        players_meta = {}
+        player_meta = {"id": player_id, "name": player_name, "avatar": ""}
+        room_has_meta = False
 
     # Accept and register connection
     await room_manager.connect(room_id, player_id, websocket)
 
     try:
         # Send game_info message (porteghal contract — provides player names/avatars)
-        await websocket.send_json({
-            "type": "game_info",
-            "room_id": room_id,
-            "player_num": int(player_num),
-            "players": players_meta,
-            "coin_bet": room_meta.get("coin_bet", 0),
-        })
+        if room_has_meta:
+            await websocket.send_json({
+                "type": "game_info",
+                "room_id": room_id,
+                "player_num": int(player_num),
+                "players": players_meta,
+                "coin_bet": room_meta.get("coin_bet", 0),
+            })
 
         # Sync or initialize game state
         state = await GameService.get_game(room_id)
@@ -287,9 +294,13 @@ async def websocket_game_endpoint(
                 "game": state,
             })
         else:
-            # Create game state if not pre-created (e.g. if only 1 player joined via create_room)
-            pieces_count = int(room_meta.get("pieces_count", 4))
-            player_count = int(room_meta.get("player_count", 2))
+            # Create game state if not pre-created
+            pieces_count = 4
+            player_count = 2
+            if room_has_meta:
+                pieces_count = int(room_meta.get("pieces_count", 4))
+                player_count = int(room_meta.get("player_count", 2))
+
             state = await GameService.create_game(
                 room_id,
                 [player_meta],

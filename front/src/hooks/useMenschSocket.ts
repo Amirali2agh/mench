@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { GameState, ServerMessage, ClientAction, GameInfoMessage } from '../types';
-import { sendToParent, getQueryParams, getWsBaseUrl, getHttpBaseUrl } from '../utils/bridge';
+import { sendToParent, getQueryParams, getWsBaseUrl } from '../utils/bridge';
 
 // Connection state types for tracking the exact network status.
 export type SocketConnectionState =
@@ -143,25 +143,80 @@ export function useMenschSocket() {
     };
   }, [wsBaseUrl, disconnectAll]);
 
-  // Auto-connect to room if directRoomId is provided (porteghal integration)
-  useEffect(() => {
-    if (directRoomId && directPlayerNum && externalPlayerId) {
-      // Fetch room info to get player names
-      const initDirect = async () => {
-        try {
-          const httpBaseUrl = getHttpBaseUrl(8000);
-          const resp = await fetch(`${httpBaseUrl}/api/rooms/${directRoomId}`);
-          if (resp.ok) {
-            await resp.json();
-            // Determine which player we are and connect
-            connectToRoom(directRoomId, externalPlayerId, externalPlayerName || 'بازیکن');
+  /**
+   * Connect to the porteghal-compatible WebSocket endpoint.
+   * Path: /ws/game/{room_id}/{player_num}
+   * The server looks up player metadata from the room instead of requiring query params.
+   * Sends game_info message on connect, then sync_state.
+   */
+  const connectToGame = useCallback((rId: string, pNum: string) => {
+    setConnectionState('connecting_room');
+    setRoomId(rId);
+    disconnectAll();
+
+    const wsUrl = `${wsBaseUrl}/ws/game/${rId}/${pNum}`;
+    const ws = new WebSocket(wsUrl);
+    roomSocketRef.current = ws;
+
+    ws.onopen = () => {
+      setConnectionState('playing');
+      setError(null);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message: ServerMessage | any = JSON.parse(event.data);
+
+        if (message.type === 'sync_state') {
+          setGameState(message.game);
+          if (message.game.status === 'finished') {
+            setConnectionState('finished');
           }
-        } catch (e) {
-          // If REST API fails, try connecting directly
-          connectToRoom(directRoomId, externalPlayerId, externalPlayerName || 'بازیکن');
+        } else if (message.type === 'game_info') {
+          setGameInfo(message);
+          if (message.players) {
+            const playerMeta = message.players[pNum];
+            if (playerMeta) {
+              _setPlayerId(playerMeta.id);
+              setPlayerName(playerMeta.name);
+              setPlayerAvatar(playerMeta.avatar);
+            }
+          }
+        } else if (message.type === 'player_disconnected' || message.type === 'opponent_disconnected') {
+          const targetId = message.player_id;
+          const targetName = message.player_name || 'حریف';
+          setDisconnectedPlayer({ id: targetId, name: targetName, timeLeft: 60 });
+        } else if (message.type === 'player_reconnected') {
+          setDisconnectedPlayer(null);
+        } else if (message.type === 'chat') {
+          const chatMsg: ChatMessage = {
+            player_id: message.player_id,
+            player_name: message.player_name || 'کاربر',
+            message: message.message,
+            timestamp: Date.now(),
+          };
+          setChatMessages((prev) => [...prev, chatMsg]);
         }
-      };
-      initDirect();
+      } catch (err) {
+        console.error('Failed to parse game WebSocket message:', err);
+      }
+    };
+
+    ws.onerror = () => {
+      setError('خطا در برقراری ارتباط با بازی.');
+      setConnectionState('idle');
+    };
+
+    ws.onclose = () => {
+      setConnectionState((prev) => (prev === 'finished' ? 'finished' : 'idle'));
+    };
+  }, [wsBaseUrl, disconnectAll]);
+
+  useEffect(() => {
+    if (directRoomId && directPlayerNum) {
+      // Connect to the porteghal-compatible WebSocket endpoint directly
+      // /ws/game/{room_id}/{player_num} looks up player metadata from room meta
+      connectToGame(directRoomId, directPlayerNum.toString());
     }
   }, []); // Run once on mount
 
