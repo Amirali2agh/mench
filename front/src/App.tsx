@@ -10,6 +10,7 @@ import { QueueScreen } from './components/QueueScreen';
 import { GameBoard } from './components/GameBoard';
 import { DisconnectOverlay } from './components/DisconnectOverlay';
 import { GameOverModal } from './components/GameOverModal';
+import { OwnConnectionOverlay } from './components/OwnConnectionOverlay';
 import { applyTheme, ThemeMode } from './utils/theme';
 import { getQueryParams } from './utils/bridge';
 
@@ -30,16 +31,17 @@ export function App() {
     gameState,
     disconnectedPlayer,
     chatMessages,
-    error,
-    joinQueue,
-    rollDice,
-    movePiece,
-    nextRound,
-    restartGame,
-    leaveGame,
-    passTurn,
-    sendChatMessage,
-  } = useMenschSocket();
+        error,
+        joinQueue,
+        rollDice,
+        movePiece,
+        nextRound,
+        restartGame,
+        leaveGame,
+        passTurn,
+        sendChatMessage,
+        connectionHealth,
+      } = useMenschSocket();
 
   const renderGameContent = () => {
     // If we have an active game state, render the board
@@ -103,12 +105,14 @@ export function App() {
       )}
 
       <DisconnectOverlay
-        isOpen={!!disconnectedPlayer}
-        playerName={disconnectedPlayer?.name || ''}
-        timeLeft={disconnectedPlayer?.timeLeft || 60}
-      />
+              isOpen={!!disconnectedPlayer}
+              playerName={disconnectedPlayer?.name || ''}
+              timeLeft={disconnectedPlayer?.timeLeft || 60}
+            />
 
-      {gameState?.status === 'finished' && (
+            <OwnConnectionOverlay status={connectionHealth} />
+
+            {gameState?.status === 'finished' && (
         <GameOverModal
           isOpen={gameState.status === 'finished'}
           winnerId={gameState.winner_id}

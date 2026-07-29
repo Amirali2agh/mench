@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { GameState, ServerMessage, ClientAction, GameInfoMessage } from '../types';
 import { sendToParent, getQueryParams, getWsBaseUrl } from '../utils/bridge';
+import type { ConnectionHealth } from '../components/OwnConnectionOverlay';
 
 // Connection state types for tracking the exact network status.
 export type SocketConnectionState =
@@ -45,9 +46,12 @@ export function useMenschSocket() {
   const [disconnectedPlayer, setDisconnectedPlayer] = useState<DisconnectedPlayerInfo | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [gameInfo, setGameInfo] = useState<GameInfoMessage | null>(null);
+  const [connectionHealth, setConnectionHealth] = useState<ConnectionHealth>('stable');
 
   const queueSocketRef = useRef<WebSocket | null>(null);
   const roomSocketRef = useRef<WebSocket | null>(null);
+  const diceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptedRef = useRef(false);
 
   const [playerId, _setPlayerId] = useState<string>(externalPlayerId || `p-${crypto.randomUUID()}`);
   const [playerName, setPlayerName] = useState<string>(externalPlayerName);
@@ -79,10 +83,18 @@ export function useMenschSocket() {
     }
   }, []);
 
+  const clearDiceTimeout = useCallback(() => {
+    if (diceTimeoutRef.current) {
+      clearTimeout(diceTimeoutRef.current);
+      diceTimeoutRef.current = null;
+    }
+  }, []);
+
   const connectToRoom = useCallback((rId: string, pId: string, pName: string) => {
     setConnectionState('connecting_room');
     setRoomId(rId);
     disconnectAll();
+    reconnectAttemptedRef.current = false;
 
     const wsUrl = `${wsBaseUrl}/ws/room/${rId}?playerId=${pId}&playerName=${encodeURIComponent(pName)}`;
     const ws = new WebSocket(wsUrl);
@@ -91,6 +103,7 @@ export function useMenschSocket() {
     ws.onopen = () => {
       setConnectionState('playing');
       setError(null);
+      setConnectionHealth('stable');
     };
 
     ws.onmessage = (event) => {
@@ -99,6 +112,8 @@ export function useMenschSocket() {
 
         if (message.type === 'sync_state') {
           setGameState(message.game);
+          // Clear dice timeout when server responds
+          clearDiceTimeout();
           if (message.game.status === 'finished') {
             setConnectionState('finished');
           }
@@ -139,9 +154,10 @@ export function useMenschSocket() {
     };
 
     ws.onclose = () => {
+      setConnectionHealth('disconnected');
       setConnectionState((prev) => (prev === 'finished' ? 'finished' : 'idle'));
     };
-  }, [wsBaseUrl, disconnectAll]);
+  }, [wsBaseUrl, disconnectAll, clearDiceTimeout]);
 
   useEffect(() => {
     if (directRoomId && directPlayerNum && externalPlayerId) {
@@ -199,7 +215,16 @@ export function useMenschSocket() {
     }
   }, []);
 
-  const rollDice = useCallback(() => sendAction({ action: 'roll_dice' }), [sendAction]);
+  // rollDice with a 10-second timeout: if the server doesn't respond,
+  // mark connection as unstable so the overlay shows
+  const rollDice = useCallback(() => {
+    sendAction({ action: 'roll_dice' });
+    clearDiceTimeout();
+    diceTimeoutRef.current = setTimeout(() => {
+      setConnectionHealth('unstable');
+    }, 10000);
+  }, [sendAction, clearDiceTimeout]);
+
   const movePiece = useCallback((pieceIndex: number) => {
     sendAction({ action: 'move_piece', piece_index: pieceIndex });
   }, [sendAction]);
@@ -212,6 +237,7 @@ export function useMenschSocket() {
     setConnectionState('idle');
     setDisconnectedPlayer(null);
     setChatMessages([]);
+    setConnectionHealth('stable');
     sendToParent('GAME_FINISHED', { reason: 'player_left' });
   }, [disconnectAll]);
 
@@ -241,6 +267,53 @@ export function useMenschSocket() {
     return () => clearInterval(interval);
   }, [disconnectedPlayer]);
 
+  // ═══ Connection health monitoring ═══
+
+  // Listen to browser online/offline events
+  useEffect(() => {
+    const handleOnline = () => {
+      setConnectionHealth('stable');
+    };
+    const handleOffline = () => {
+      setConnectionHealth('disconnected');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Periodic 15s health check: detect stale sockets
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const sock = roomSocketRef.current;
+      if (connectionState === 'playing') {
+        if (!sock || sock.readyState !== WebSocket.OPEN) {
+          if (!navigator.onLine) {
+            setConnectionHealth('disconnected');
+          } else if (!reconnectAttemptedRef.current) {
+            // Socket is closed but browser is online — could be a transient issue
+            setConnectionHealth('unstable');
+            // Attempt one reconnect
+            reconnectAttemptedRef.current = true;
+            if (roomId && playerId && playerName) {
+              connectToRoom(roomId, playerId, playerName);
+            }
+          }
+        } else {
+          // Socket is open — recover from disconnected state
+          if (connectionHealth === 'disconnected' || connectionHealth === 'unstable') {
+            setConnectionHealth('stable');
+          }
+          reconnectAttemptedRef.current = false;
+        }
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [connectionState, connectionHealth, roomId, playerId, playerName, connectToRoom]);
+
   return {
     playerId,
     playerName,
@@ -260,5 +333,6 @@ export function useMenschSocket() {
     sendChatMessage,
     directRoomId,
     gameInfo,
+    connectionHealth,
   };
 }
