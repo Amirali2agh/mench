@@ -1,6 +1,6 @@
 // front/src/components/Dice.tsx
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from "react";
 
 export interface DiceProps {
   value: number | null;
@@ -8,28 +8,30 @@ export interface DiceProps {
   className?: string;
 }
 
-const Dice: React.FC<DiceProps> = ({ value, isRolling, className = '' }) => {
-  // اگر مقدار تاس null باشد، نمایشگر خنثی داریم
-  const displayValue = value !== null ? value : 1;
+// Module-level fallback to remember the last rolled value across component remounts
+let globalLastDiceValue = 1;
+
+const Dice: React.FC<DiceProps> = ({ value, isRolling, className = "" }) => {
+  // Keep track of the last non-null rolled value
+  const lastValueRef = useRef<number>(value ?? globalLastDiceValue);
+
+  if (value !== null) {
+    lastValueRef.current = value;
+    globalLastDiceValue = value;
+  }
+
+  // Use the active value, or fallback to the last valid value (so it doesn't reset to 1)
+  const displayValue = value !== null ? value : lastValueRef.current;
 
   const randomTilt = useMemo(() => {
-    if (isRolling) return '';
-    const rotateZ = Math.floor(Math.random() * 20) - 10; 
+    if (isRolling) return "";
+    const rotateZ = Math.floor(Math.random() * 20) - 10;
     const rotateXOffset = Math.floor(Math.random() * 10) - 5;
     const rotateYOffset = Math.floor(Math.random() * 10) - 5;
     return `rotateZ(${rotateZ}deg) rotateX(${rotateXOffset}deg) rotateY(${rotateYOffset}deg)`;
-  }, [isRolling]); 
+  }, [isRolling]);
 
   const renderPips = (faceValue: number) => {
-    // اگر مقدار تاس null باشد (در حال انتظار برای تاس جدید یا بعد از جایزه ۶)، چهره خنثی نمایش داده می‌شود
-    if (value === null) {
-      return (
-        <div className="h-full w-full bg-gradient-to-br from-white via-stone-50 to-stone-200 rounded-lg border border-stone-300/60 shadow-inner flex items-center justify-center">
-          <div className="w-1.5 h-1.5 rounded-full bg-stone-300" />
-        </div>
-      );
-    }
-
     const pipPositions: Record<number, number[]> = {
       1: [4],
       2: [0, 8],
@@ -55,15 +57,21 @@ const Dice: React.FC<DiceProps> = ({ value, isRolling, className = '' }) => {
   };
 
   const getLandedTransform = (val: number) => {
-    if (value === null) return 'rotateX(0deg) rotateY(0deg)';
     switch (val) {
-      case 1: return 'rotateX(0deg) rotateY(0deg)';
-      case 6: return 'rotateX(0deg) rotateY(180deg)';
-      case 3: return 'rotateX(0deg) rotateY(-90deg)';
-      case 4: return 'rotateX(0deg) rotateY(90deg)';
-      case 2: return 'rotateX(-90deg) rotateY(0deg)';
-      case 5: return 'rotateX(90deg) rotateY(0deg)';
-      default: return 'rotateX(0deg) rotateY(0deg)';
+      case 1:
+        return "rotateX(0deg) rotateY(0deg)";
+      case 6:
+        return "rotateX(0deg) rotateY(180deg)";
+      case 3:
+        return "rotateX(0deg) rotateY(-90deg)";
+      case 4:
+        return "rotateX(0deg) rotateY(90deg)";
+      case 2:
+        return "rotateX(-90deg) rotateY(0deg)";
+      case 5:
+        return "rotateX(90deg) rotateY(0deg)";
+      default:
+        return "rotateX(0deg) rotateY(0deg)";
     }
   };
 
@@ -72,25 +80,41 @@ const Dice: React.FC<DiceProps> = ({ value, isRolling, className = '' }) => {
     : { transform: `${getLandedTransform(displayValue)} ${randomTilt}` };
 
   return (
-    <div className={`flex flex-col items-center justify-center relative w-10 h-10 ${className}`}>
-      <div 
+    <div
+      className={`flex flex-col items-center justify-center relative w-10 h-10 ${className}`}
+    >
+      <div
         className={`absolute bottom-[-6px] w-8 h-1.5 rounded-full bg-black/40 blur-[3px] transition-all duration-300 transform ${
-          isRolling ? 'scale-75 opacity-50 animate-pulse' : 'scale-100 opacity-100'
-        }`} 
+          isRolling
+            ? "scale-75 opacity-50 animate-pulse"
+            : "scale-100 opacity-100"
+        }`}
       />
       <div className="w-10 h-10 [perspective:600px] flex items-center justify-center">
         <div
           style={transformStyle}
           className={`w-full h-full relative [transform-style:preserve-3d] transition-transform duration-500 ease-out ${
-            isRolling ? 'animate-[spin3D_0.5s_infinite_linear]' : ''
+            isRolling ? "animate-[spin3D_0.5s_infinite_linear]" : ""
           }`}
         >
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(0deg)_translateZ(20px)]">{renderPips(1)}</div>
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(20px)]">{renderPips(6)}</div>
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(90deg)_translateZ(20px)]">{renderPips(3)}</div>
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(-90deg)_translateZ(20px)]">{renderPips(4)}</div>
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateX(90deg)_translateZ(20px)]">{renderPips(2)}</div>
-          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateX(-90deg)_translateZ(20px)]">{renderPips(5)}</div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(0deg)_translateZ(20px)]">
+            {renderPips(1)}
+          </div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)_translateZ(20px)]">
+            {renderPips(6)}
+          </div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(90deg)_translateZ(20px)]">
+            {renderPips(3)}
+          </div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateY(-90deg)_translateZ(20px)]">
+            {renderPips(4)}
+          </div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateX(90deg)_translateZ(20px)]">
+            {renderPips(2)}
+          </div>
+          <div className="absolute w-full h-full [backface-visibility:hidden] [transform:rotateX(-90deg)_translateZ(20px)]">
+            {renderPips(5)}
+          </div>
         </div>
       </div>
     </div>
@@ -98,3 +122,4 @@ const Dice: React.FC<DiceProps> = ({ value, isRolling, className = '' }) => {
 };
 
 export default Dice;
+

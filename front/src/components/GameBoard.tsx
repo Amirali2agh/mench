@@ -32,8 +32,6 @@ const PlayerAvatar: React.FC<{ name: string; avatar?: string }> = ({ name, avata
   );
 };
 
-// Star icon for safe cells
-
 export const GameBoard: React.FC<GameBoardProps> = ({
   gameState,
   localPlayerId,
@@ -48,7 +46,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // ═══ Step-by-step piece animation state — MUST be before early return ═══
+  // ═══ Step-by-step piece animation state ═══
   const realPositionsRef = useRef<Record<string, number>>({});
   const [visualPositions, setVisualPositions] = useState<Record<string, number>>({});
   const animTimersRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
@@ -133,8 +131,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const boardRef = useRef<HTMLDivElement>(null);
   const [cellPitch, setCellPitch] = useState(0);
 
-  // Measure the CSS Grid's cell pitch (width of one cell including gap share)
-  // so we can absolutely-position pieces and animate them with CSS transitions.
   useLayoutEffect(() => {
     const board = boardRef.current;
     if (!board) return;
@@ -154,7 +150,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   useEffect(() => {
     if (!gameState?.pieces || !players.length) return;
 
-    // First load — initialise visual positions to match server without animation
     if (!animInitialized) {
       const initial: Record<string, number> = {};
       players.forEach((player) => {
@@ -172,7 +167,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       return;
     }
 
-    // Collect moved pieces
     const moves: Array<{ key: string; from: number; to: number }> = [];
     players.forEach((player) => {
       if (!player) return;
@@ -187,16 +181,12 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       }
     });
 
-    // Start step-by-step animations
     for (const { key, from, to } of moves) {
       if (from >= 0 && to > from) {
-        // Forward movement on the track/home stretch — animate one cell at a time
         const steps = to - from;
-        // Cancel any stale animation for this piece
         if (animTimersRef.current[key]) {
           clearInterval(animTimersRef.current[key]);
         }
-        // Set visual position to the starting cell
         setVisualPositions((prev) => ({ ...prev, [key]: from }));
         let currentStep = 0;
         animTimersRef.current[key] = setInterval(() => {
@@ -209,12 +199,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
           }
         }, 160);
       } else {
-        // Yard → track, capture back to yard, or any backward move — snap immediately
         setVisualPositions((prev) => ({ ...prev, [key]: to }));
       }
     }
 
-    // Persist the new server positions
     players.forEach((player) => {
       if (!player) return;
       const playerPieces = pieces[player.id] || [];
@@ -225,20 +213,17 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     });
   }, [gameState?.pieces]);
 
-  // Cleanup all animation timers on unmount
   useEffect(() => {
     return () => {
       Object.values(animTimersRef.current).forEach(clearInterval);
     };
   }, []);
 
-  // Reset timer when the active turn changes
   useEffect(() => {
     setTurnTimeLeft(TURN_TIMEOUT);
     hasActedRef.current = false;
   }, [gameState?.current_turn, gameState?.status]);
 
-  // Countdown tick — only auto-pass when it's the LOCAL player's turn
   useEffect(() => {
     if (gameState?.status !== 'playing') return;
 
@@ -246,7 +231,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       setTurnTimeLeft((prev) => {
         if (prev <= 1) {
           if (turnTimerRef.current) clearInterval(turnTimerRef.current);
-          // Only pass if it's the local player's turn and they haven't acted
           if (current_turn === localPlayerIdx && !hasActedRef.current) {
             onPassTurn();
           }
@@ -264,7 +248,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     };
   }, [gameState?.current_turn, gameState?.status, onPassTurn]);
 
-  // Mark that the player has acted (rolled or moved)
   useEffect(() => {
     if (gameState?.dice_rolled || gameState?.dice !== null) {
       hasActedRef.current = true;
@@ -281,8 +264,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return map[vIdx] || '#999';
   };
 
-  // Map player index to visual position around the board
-  // TL=green(v2), TR=blue(v1), BL=red(v0), BR=yellow(v3)
   const getPlayerPanelPosition = (playerIdx: number): 'tl' | 'tr' | 'bl' | 'br' | null => {
     const vIdx = getVisualIdx(playerIdx);
     const map: Record<number, 'tl' | 'tr' | 'bl' | 'br'> = {
@@ -323,10 +304,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     }`}
                   >
                     <div className="w-[70%] h-[70%] rounded-full relative overflow-hidden" style={{ backgroundColor: color }}>
-                      {/* Specular highlight */}
                       <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/10 to-transparent rounded-full" />
                     </div>
-                    {/* Top-left gleam */}
                     <div className="absolute top-[8%] left-[15%] w-[30%] h-[20%] rounded-full bg-white/60 blur-[1px] rotate-[-20deg]" />
                   </div>
                 )}
@@ -338,7 +317,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     );
   };
 
-  // Build player panels for the 4 corners
   const renderPlayerPanel = (playerIdx: number) => {
     const pos = getPlayerPanelPosition(playerIdx);
     if (!pos || !players[playerIdx]) return null;
@@ -350,7 +328,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return (
       <div className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? 'ring-2 ring-amber-400/60' : ''}`}>
         <div className="relative w-[42px] h-[42px] flex items-center justify-center">
-          {/* Turn countdown ring */}
           {isTurn && (
             <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 42 42">
               <circle
@@ -384,7 +361,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     );
   };
 
-  // Find players for each position
   const tlPlayer = players.findIndex((_, i) => getVisualIdx(i) === 2);
   const trPlayer = players.findIndex((_, i) => getVisualIdx(i) === 1);
   const blPlayer = players.findIndex((_, i) => getVisualIdx(i) === 0);
@@ -421,9 +397,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       <main className="flex-1 flex flex-col overflow-hidden px-2">
         
         {/* Top players row */}
-        <div className="flex justify-between items-start px-1 pt-1 pb-1 min-h-[52px]">
-          <div>{tlPlayer >= 0 && renderPlayerPanel(tlPlayer)}</div>
-          <div>{trPlayer >= 0 && renderPlayerPanel(trPlayer)}</div>
+        <div className="grid grid-cols-2 items-start w-full max-w-[480px] mx-auto px-1 pt-1 pb-1 min-h-[52px]">
+          <div className="flex justify-start">{tlPlayer >= 0 && renderPlayerPanel(tlPlayer)}</div>
+          <div className="flex justify-end">{trPlayer >= 0 && renderPlayerPanel(trPlayer)}</div>
         </div>
 
         {/* Board + Bottom players */}
@@ -450,21 +426,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   if (rIdx >= 7 && cIdx < 4) return null;
                   if (rIdx >= 7 && cIdx >= 7) return null;
 
-                  // Center cell - home triangle area
                   if (rIdx === 5 && cIdx === 5) {
                     return (
                       <div key={`cell-${rIdx}-${cIdx}`} className="col-start-6 col-end-7 row-start-6 row-end-7 flex items-center justify-center relative">
-                        {/* Colored triangles in center */}
                         <div className="w-full h-full rounded-lg overflow-hidden relative">
-                          {/* Top triangle - Blue */}
                           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[clamp(8px,1.5vmin,18px)] border-r-[clamp(8px,1.5vmin,18px)] border-b-[clamp(8px,1.5vmin,18px)] border-l-transparent border-r-transparent border-b-[#277DA1]/40" />
-                          {/* Right triangle - Yellow */}
                           <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[clamp(8px,1.5vmin,18px)] border-b-[clamp(8px,1.5vmin,18px)] border-l-[clamp(8px,1.5vmin,18px)] border-t-transparent border-b-transparent border-l-[#F9C74F]/40" />
-                          {/* Bottom triangle - Red */}
                           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[clamp(8px,1.5vmin,18px)] border-r-[clamp(8px,1.5vmin,18px)] border-t-[clamp(8px,1.5vmin,18px)] border-l-transparent border-r-transparent border-t-[#F94144]/40" />
-                          {/* Left triangle - Green */}
                           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0 h-0 border-t-[clamp(8px,1.5vmin,18px)] border-b-[clamp(8px,1.5vmin,18px)] border-r-[clamp(8px,1.5vmin,18px)] border-t-transparent border-b-transparent border-r-[#43AA8B]/40" />
-                          {/* Center circle */}
                           <div className="absolute inset-[25%] rounded-full bg-[#E8D3B0]/50 border border-[#D4C4A0]" />
                         </div>
                       </div>
@@ -475,26 +444,16 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   let isHomeStretch = false;
                   let isStarCell = false;
 
-                  // Home stretch: colored path from each corner toward center
-                  // Blue (TR → center vertical): cIdx===5, rIdx 1-4
-                  // Yellow (BR → center horizontal): rIdx===5, cIdx 6-9
-                  // Green (TL → center horizontal): rIdx===5, cIdx 1-4
-                  // Red (BL → center vertical): cIdx===5, rIdx 6-9
-                  
                   if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) { customBg = 'bg-[#277DA1]/30'; isHomeStretch = true; }
                   else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) { customBg = 'bg-[#F9C74F]/30'; isHomeStretch = true; }
                   else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) { customBg = 'bg-[#43AA8B]/30'; isHomeStretch = true; }
                   else if (cIdx === 5 && rIdx >= 6 && rIdx <= 9) { customBg = 'bg-[#F94144]/30'; isHomeStretch = true; }
 
-                  // Starting position markers (colored cells where players enter the track)
-                  // Blue start: (0,6), Yellow start: (6,10), Green start: (4,0), Red start: (10,4)
                   if (rIdx === 0 && cIdx === 4) customBg = 'bg-[#277DA1]';
                   else if (rIdx === 4 && cIdx === 10) customBg = 'bg-[#F9C74F]';
                   else if (rIdx === 6 && cIdx === 0) customBg = 'bg-[#43AA8B]';
                   else if (rIdx === 10 && cIdx === 6) customBg = 'bg-[#F94144]';
 
-                  // Star cells on safe positions
-                  // Check if this cell is a star position on the circular track
                   const cellOnTrack = (r: number, c: number): number | null => {
                     for (let i = 0; i < 39; i++) {
                       const t = circularTrack[i];
@@ -587,17 +546,15 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               </div>
             )}
 
-            </div> {/* end relative grid wrapper */}
-
+            </div>
           </div>
 
-          {/* Bottom row: players + main dice */}
-          <div className="flex items-center justify-between w-full max-w-[480px] px-1 pb-1 min-h-[60px]">
-            <div>{blPlayer >= 0 && renderPlayerPanel(blPlayer)}</div>
+          {/* Bottom row: players + main dice (Fixed Centering with 3-column Grid) */}
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-[480px] px-1 pb-1 min-h-[60px]">
+            <div className="flex justify-start">{blPlayer >= 0 && renderPlayerPanel(blPlayer)}</div>
 
             {/* Large main dice */}
-            <div className="relative">
-              {/* Glow ring behind dice on active turn */}
+            <div className="flex justify-center relative">
               {isMyTurn && !gameState.dice_rolled && !isSpinning && (
                 <div className="absolute inset-[-6px] rounded-[28px] bg-amber-400/20 animate-pulse" />
               )}
@@ -614,24 +571,21 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                   <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.4]" />
                 </button>
               ) : gameState.dice !== null ? (
-                /* Show rolled result for non-active players */
                 <div className="w-[56px] h-[56px] bg-white/70 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-[#E6D5B8]/50 flex items-center justify-center opacity-70">
                   <Dice value={gameState.dice} isRolling={false} className="scale-[1.0]" />
                 </div>
               ) : (
-                /* Empty placeholder to keep layout */
                 <div className="w-[56px] h-[56px]" />
               )}
             </div>
 
-            <div>{brPlayer >= 0 && renderPlayerPanel(brPlayer)}</div>
+            <div className="flex justify-end">{brPlayer >= 0 && renderPlayerPanel(brPlayer)}</div>
           </div>
         </div>
       </main>
 
       {/* ═══ CHAT BAR ═══ */}
       <footer className="px-3 pb-[clamp(4px,1vh,8px)] pt-1">
-        {/* Chat messages */}
         {chatMessages.length > 0 && (
           <div className="mx-1 mb-1 max-h-[clamp(60px,8vh,100px)] overflow-y-auto rounded-xl bg-white/80 backdrop-blur-sm shadow-[0_2px_8px_rgba(0,0,0,0.04)] px-3 py-2 space-y-1 scrollbar-thin">
             {chatMessages.map((msg, i) => (
