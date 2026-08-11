@@ -170,6 +170,42 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     return true;
   };
 
+  const autoMovedRollRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isMyTurn || !gameState.dice_rolled || localDice === null) {
+      autoMovedRollRef.current = null;
+      return;
+    }
+
+    const myPieces = pieces[localPlayerId] || [];
+    const movablePieces = myPieces
+      .map((_, pieceIdx) => pieceIdx)
+      .filter(isPieceMovable);
+
+    if (movablePieces.length !== 1) {
+      autoMovedRollRef.current = null;
+      return;
+    }
+
+    const rollKey = `${current_turn}:${localDice}:${myPieces.join(",")}`;
+    if (autoMovedRollRef.current === rollKey) return;
+
+    autoMovedRollRef.current = rollKey;
+    const timer = window.setTimeout(() => {
+      onMovePiece(movablePieces[0]);
+    }, 1300);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    current_turn,
+    gameState.dice_rolled,
+    isMyTurn,
+    localDice,
+    localPlayerId,
+    onMovePiece,
+    pieces,
+  ]);
+
   const handleDiceClick = () => {
     if (!isMyTurn || isSpinning || gameState.dice_rolled) return;
     setIsSpinning(true);
