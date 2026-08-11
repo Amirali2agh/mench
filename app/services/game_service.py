@@ -247,7 +247,14 @@ class GameService:
     def _rotate_turn(state: dict) -> dict:
         joined_count = len(state["players"])
         if joined_count > 0:
-            state["current_turn"] = (state["current_turn"] + 1) % joined_count
+            if state.get("player_count") == 4:
+                turn_order = [0, 3, 1, 2]
+                current_idx = state["current_turn"]
+                state["current_turn"] = turn_order[
+                    (turn_order.index(current_idx) + 1) % len(turn_order)
+                ]
+            else:
+                state["current_turn"] = (state["current_turn"] + 1) % joined_count
         
         state["dice_rolled"] = False
         state["consecutive_sixes"] = 0

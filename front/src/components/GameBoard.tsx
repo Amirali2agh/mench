@@ -122,9 +122,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     }
     if (player_count === 4) {
       if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 1;
-      if (backendIdx === 2) return 2;
-      if (backendIdx === 3) return 3;
+      if (backendIdx === 1) return 3;
+      if (backendIdx === 2) return 1;
+      if (backendIdx === 3) return 2;
     }
     return backendIdx;
   };
@@ -553,11 +553,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               <div className="grid grid-cols-11 grid-rows-11 gap-[0.35vmin] w-full h-full relative">
                 {/* Yards */}
                 <div className="col-start-1 col-end-5 row-start-1 row-end-5 p-[0.3vmin]">
-                  {renderBaseYard(1)}
-                </div>{" "}
-                {/* TL: yellow */}
-                <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-[0.3vmin]">
                   {renderBaseYard(2)}
+                </div>{" "}
+                {/* TL: green */}
+                <div className="col-start-8 col-end-12 row-start-1 row-end-5 p-[0.3vmin]">
+                  {renderBaseYard(1)}
                 </div>{" "}
                 {/* TR: blue */}
                 <div className="col-start-1 col-end-5 row-start-8 row-end-12 p-[0.3vmin]">
@@ -599,10 +599,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     let isStarCell = false;
 
                     if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) {
-                      customBg = "bg-[#277DA1]/30";
+                      customBg = "bg-[#43AA8B]/30";
                       isHomeStretch = true;
                     } else if (rIdx === 5 && cIdx >= 6 && cIdx <= 9) {
-                      customBg = "bg-[#43AA8B]/30";
+                      customBg = "bg-[#277DA1]/30";
                       isHomeStretch = true;
                     } else if (rIdx === 5 && cIdx >= 1 && cIdx <= 4) {
                       customBg = "bg-[#F9C74F]/30";
@@ -612,9 +612,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                       isHomeStretch = true;
                     }
 
-                    if (rIdx === 0 && cIdx === 4) customBg = "bg-[#277DA1]";
+                    if (rIdx === 0 && cIdx === 4) customBg = "bg-[#43AA8B]";
                     else if (rIdx === 4 && cIdx === 10)
-                      customBg = "bg-[#43AA8B]";
+                      customBg = "bg-[#277DA1]";
                     else if (rIdx === 6 && cIdx === 0)
                       customBg = "bg-[#F9C74F]";
                     else if (rIdx === 10 && cIdx === 6)
