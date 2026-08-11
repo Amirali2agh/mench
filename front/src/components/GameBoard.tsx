@@ -337,10 +337,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   ): "tl" | "tr" | "bl" | "br" | null => {
     const vIdx = getVisualIdx(playerIdx);
     const map: Record<number, "tl" | "tr" | "bl" | "br"> = {
-      3: "tl", // yellow → top-left
+      2: "tl", // green → top-left
       1: "tr", // blue → top-right
-      0: "bl", // red → bottom-left
-      2: "br", // green → bottom-right
+      3: "bl", // yellow → bottom-left
+      0: "br", // red → bottom-right
     };
     return map[vIdx] || null;
   };
@@ -413,7 +413,9 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const isTurn = current_turn === playerIdx;
 
     return (
-      <div className="flex items-center gap-2">
+      <div
+        className={`flex items-center gap-2 ${pos === "tr" || pos === "br" ? "flex-row-reverse" : ""}`}
+      >
         <div
           className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? "ring-2 ring-amber-400/60" : ""}`}
         >
@@ -482,10 +484,10 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     );
   };
 
-  const tlPlayer = players.findIndex((_, i) => getVisualIdx(i) === 3);
+  const tlPlayer = players.findIndex((_, i) => getVisualIdx(i) === 2);
   const trPlayer = players.findIndex((_, i) => getVisualIdx(i) === 1);
-  const blPlayer = players.findIndex((_, i) => getVisualIdx(i) === 0);
-  const brPlayer = players.findIndex((_, i) => getVisualIdx(i) === 2);
+  const blPlayer = players.findIndex((_, i) => getVisualIdx(i) === 3);
+  const brPlayer = players.findIndex((_, i) => getVisualIdx(i) === 0);
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#F9F6F0] font-sans overflow-hidden select-none">
