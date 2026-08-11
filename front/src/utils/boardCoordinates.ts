@@ -95,10 +95,10 @@ export const homeCoords: Record<number, GridCoord[]> = {
     { r: 6, c: 5 },
   ], // قرمز (عمودی از پایین)
   1: [
-    { r: 5, c: 9 },
-    { r: 5, c: 8 },
-    { r: 5, c: 7 },
-    { r: 5, c: 6 },
+    { r: 5, c: 1 },
+    { r: 5, c: 2 },
+    { r: 5, c: 3 },
+    { r: 5, c: 4 },
   ], // آبی (افقی از راست)
   2: [
     { r: 1, c: 5 },
@@ -107,21 +107,16 @@ export const homeCoords: Record<number, GridCoord[]> = {
     { r: 4, c: 5 },
   ], // سبز (عمودی از بالا)
   3: [
-    { r: 5, c: 1 },
-    { r: 5, c: 2 },
-    { r: 5, c: 3 },
-    { r: 5, c: 4 },
+    { r: 5, c: 9 },
+    { r: 5, c: 8 },
+    { r: 5, c: 7 },
+    { r: 5, c: 6 },
   ], // زرد (افقی از چپ)
 };
 
 export const goalCoord: GridCoord = { r: 5, c: 5 };
 
 // Starting offsets on the circular track for each visual corner.
-// Each color's start cell is at its matching offset in the 40-cell track:
-//   Red    (vIdx=0): (10,4) ≡ circularTrack[20] ← offset 20
-//   Blue   (vIdx=1): (0,6)  ≡ circularTrack[0]  ← offset 0
-//   Green  (vIdx=2): (4,0)  ≡ circularTrack[30] ← offset 30
-//   Yellow (vIdx=3): (6,10) ≡ circularTrack[10] ← offset 10
 const START_OFFSETS: Record<number, number> = {
   0: 20, // قرمز
   1: 30, // آبی

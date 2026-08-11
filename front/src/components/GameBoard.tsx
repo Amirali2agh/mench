@@ -109,23 +109,15 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     );
   }
 
-  const { players, current_turn, pieces, pieces_count, player_count } =
+  const { players, current_turn, pieces, pieces_count } =
     gameState;
   const localPlayerIdx = players.findIndex((p) => p?.id === localPlayerId);
   const isMyTurn = current_turn === localPlayerIdx;
   const localDice = gameState.dice;
 
   const getVisualIdx = (backendIdx: number) => {
-    if (player_count === 2) {
-      if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 1;
-    }
-    if (player_count === 4) {
-      if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 3;
-      if (backendIdx === 2) return 1;
-      if (backendIdx === 3) return 2;
-    }
+    // Player indices are also the color indices. Keep a piece on its own
+    // home stretch after the four-player board layout changes.
     return backendIdx;
   };
 
@@ -165,15 +157,25 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const currentPos = myPieces[pieceIdx];
     if (currentPos === undefined) return false;
     if (currentPos === -1 && localDice !== 6) return false;
-    if (localDice && currentPos !== -1 && currentPos + localDice > 44)
-      return false;
+    if (localDice && currentPos !== -1) {
+      const targetPos = currentPos + localDice;
+      if (targetPos > 43) return false;
+      if (
+        targetPos >= 40 &&
+        myPieces.some(
+          (position, index) => index !== pieceIdx && position === targetPos,
+        )
+      ) {
+        return false;
+      }
+    }
     return true;
   };
 
-  const autoMovedRollRef = useRef<string | null>(null);
+  const autoActionRollRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isMyTurn || !gameState.dice_rolled || localDice === null) {
-      autoMovedRollRef.current = null;
+      autoActionRollRef.current = null;
       return;
     }
 
@@ -183,14 +185,14 @@ export const GameBoard: React.FC<GameBoardProps> = ({
       .filter(isPieceMovable);
 
     if (movablePieces.length !== 1) {
-      autoMovedRollRef.current = null;
+      autoActionRollRef.current = null;
       return;
     }
 
     const rollKey = `${current_turn}:${localDice}:${myPieces.join(",")}`;
-    if (autoMovedRollRef.current === rollKey) return;
+    if (autoActionRollRef.current === rollKey) return;
 
-    autoMovedRollRef.current = rollKey;
+    autoActionRollRef.current = rollKey;
     const timer = window.setTimeout(() => {
       onMovePiece(movablePieces[0]);
     }, 1300);

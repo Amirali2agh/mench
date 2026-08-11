@@ -4,6 +4,9 @@ import asyncio
 from app.redis_client import redis_client
 from app.utils.redis_keys import RedisKeys
 
+HOME_START_POSITION = 40
+HOME_END_POSITION = 43
+
 class GameService:
     """
     Core game engine service managing Mensch (Ludo) board logic,
@@ -134,11 +137,21 @@ class GameService:
         # ۲. مکث برای نمایش نتیجه تاس پیش از تغییر نوبت
         await asyncio.sleep(2)
         
+        # A client may have passed the blocked turn while the dice was shown.
+        # Only rotate if this roll is still waiting for a move.
+        latest_state = await GameService.get_game(room_id)
+        if latest_state and (
+            latest_state["current_turn"] != state["current_turn"]
+            or not latest_state["dice_rolled"]
+        ):
+            return latest_state
+
         # ۳. تغییر نوبت و ریست کردن وضعیت تاس
-        state = GameService._rotate_turn(state)
+        state = GameService._rotate_turn(latest_state or state)
         await GameService.save_game(room_id, state)
-        
-        # روتر وب‌سوکت (room.py) این وضعیت جدید را دوباره به همه برودکست خواهد کرد
+        if room_manager:
+            await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
+
         return state
 
     @staticmethod
@@ -173,6 +186,10 @@ class GameService:
         is_valid, new_pos = GameService._calculate_new_position(current_pos, dice)
         if not is_valid:
             raise ValueError("Invalid move selection")
+        if not GameService._is_home_position_available(
+            player_pieces, piece_index, new_pos
+        ):
+            raise ValueError("Home cell is already occupied")
 
         player_pieces[piece_index] = new_pos
 
@@ -180,7 +197,7 @@ class GameService:
         if 0 <= new_pos <= 39:
             captured = GameService._handle_captures(state, player_id, new_pos)
 
-        if all(pos == 44 for pos in player_pieces):
+        if all(HOME_START_POSITION <= pos <= HOME_END_POSITION for pos in player_pieces):
             state["status"] = "finished"
             state["winner_id"] = player_id
         else:
@@ -196,11 +213,25 @@ class GameService:
     @staticmethod
     def _player_has_valid_moves(state: dict, player_id: str, dice: int) -> bool:
         pieces = state["pieces"][player_id]
-        for pos in pieces:
+        for piece_index, pos in enumerate(pieces):
             is_valid, _ = GameService._calculate_new_position(pos, dice)
-            if is_valid:
+            new_pos = pos + dice if pos >= 0 else 0
+            if is_valid and GameService._is_home_position_available(
+                pieces, piece_index, new_pos
+            ):
                 return True
         return False
+
+    @staticmethod
+    def _is_home_position_available(
+        player_pieces: list[int], piece_index: int, position: int
+    ) -> bool:
+        if not HOME_START_POSITION <= position <= HOME_END_POSITION:
+            return True
+        return all(
+            index == piece_index or piece_position != position
+            for index, piece_position in enumerate(player_pieces)
+        )
 
     @staticmethod
     def _calculate_new_position(current_pos: int, dice: int) -> tuple[bool, int]:
@@ -210,7 +241,7 @@ class GameService:
             return False, -1
 
         new_pos = current_pos + dice
-        if new_pos <= 44:
+        if new_pos <= HOME_END_POSITION:
             return True, new_pos
 
         return False, current_pos

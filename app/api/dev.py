@@ -47,8 +47,8 @@ async def place_piece(room_id: str, req: PlacePieceRequest):
     if req.piece_index < 0 or req.piece_index >= pieces_count:
         raise HTTPException(status_code=400, detail="Invalid piece_index")
 
-    if req.position < -1 or req.position > 44:
-        raise HTTPException(status_code=400, detail="position must be between -1 and 44")
+    if req.position < -1 or req.position > 43:
+        raise HTTPException(status_code=400, detail="position must be between -1 and 43")
 
     pieces[req.player_id][req.piece_index] = req.position
     state["pieces"] = pieces
