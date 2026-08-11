@@ -43,6 +43,7 @@ export interface GameState {
   current_turn: number;     // Index of the active player in the "players" array (0 to player_count - 1)
   dice: number | null;      // Last rolled dice value (1 to 6) or null if not yet rolled in this turn
   dice_rolled: boolean;     // True if the current player has already rolled the dice and must now move
+  last_roll?: { player_id: string; value: number; roll_id?: number } | null;
   pieces: PiecesState;      // Absolute/Relative coordinates of all pieces per player
   status: GameStatus;       // The current status of the game ('playing' or 'finished')
   winner_id: string | null;  // The ID of the winner if the game has finished, otherwise null

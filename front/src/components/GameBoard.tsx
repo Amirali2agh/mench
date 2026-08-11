@@ -45,6 +45,28 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const [isSpinning, setIsSpinning] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const lastRollSignatureRef = useRef<string | null>(null);
+  const [visibleRoll, setVisibleRoll] = useState<{ playerId: string; value: number } | null>(null);
+  const [rollingRollId, setRollingRollId] = useState<number | null>(null);
+
+  // Keep an automatic pass result visible briefly, even after current_turn advances.
+  useEffect(() => {
+    const lastRoll = gameState?.last_roll;
+    if (!lastRoll) {
+      setVisibleRoll(null);
+      return;
+    }
+
+    const signature = String(lastRoll.roll_id ?? `${lastRoll.player_id}:${lastRoll.value}`);
+    if (lastRollSignatureRef.current === signature) return;
+
+    lastRollSignatureRef.current = signature;
+    setVisibleRoll({ playerId: lastRoll.player_id, value: lastRoll.value });
+    const rollId = lastRoll.roll_id ?? 0;
+    setRollingRollId(rollId);
+    const timer = window.setTimeout(() => setRollingRollId((current) => current === rollId ? null : current), 1300);
+    return () => window.clearTimeout(timer);
+  }, [gameState?.last_roll?.roll_id]);
 
   // ═══ Step-by-step piece animation state ═══
   const realPositionsRef = useRef<Record<string, number>>({});
@@ -68,6 +90,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const { players, current_turn, pieces, pieces_count, player_count } = gameState;
   const localPlayerIdx = players.findIndex((p) => p?.id === localPlayerId);
   const isMyTurn = current_turn === localPlayerIdx;
+  const localDice = gameState.dice;
 
   const getVisualIdx = (backendIdx: number) => {
     if (player_count === 2) {
@@ -102,8 +125,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const myPieces = pieces[localPlayerId] || [];
     const currentPos = myPieces[pieceIdx];
     if (currentPos === undefined) return false;
-    if (currentPos === -1 && gameState.dice !== 6) return false;
-    if (gameState.dice && currentPos !== -1 && currentPos + gameState.dice > 44) return false;
+    if (currentPos === -1 && localDice !== 6) return false;
+    if (localDice && currentPos !== -1 && currentPos + localDice > 44) return false;
     return true;
   };
 
@@ -115,8 +138,8 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
   // Stop spinning when the WebSocket confirms the roll result
   useEffect(() => {
-    if (isSpinning && gameState.dice !== null) {
-      const timer = setTimeout(() => setIsSpinning(false), 400);
+    if (isSpinning && gameState.dice !== null && gameState.last_roll?.player_id === localPlayerId) {
+      const timer = setTimeout(() => setIsSpinning(false), 1300);
       return () => clearTimeout(timer);
     }
   }, [isSpinning, gameState.dice]);
@@ -290,7 +313,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(3px,0.5vmin,8px)] p-[clamp(4px,0.8vmin,12px)] w-full h-full">
           {Array.from({ length: 4 }).map((_, idx) => {
             const slotTaken = ownerIdx >= 0 && players[ownerIdx] && pieces[players[ownerIdx].id]?.[idx] === -1;
-            const isMovablePiece = ownerIdx === localPlayerIdx && slotTaken && isMyTurn && gameState.dice === 6 && gameState.dice_rolled;
+            const isMovablePiece = ownerIdx === localPlayerIdx && slotTaken && isMyTurn && localDice === 6 && gameState.dice_rolled;
             return (
               <div
                 key={idx}
@@ -298,7 +321,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
               >
                 {slotTaken && (
                   <div
-                    onClick={() => isMovablePiece && onMovePiece(idx)}
+                     onClick={() => isMovablePiece && onMovePiece(idx)}
                     className={`w-[80%] h-[80%] rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center relative ${
                       isMovablePiece ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-1 ring-offset-transparent z-30 scale-105' : ''
                     }`}
@@ -326,37 +349,47 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const isTurn = current_turn === playerIdx;
 
     return (
-      <div className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? 'ring-2 ring-amber-400/60' : ''}`}>
-        <div className="relative w-[42px] h-[42px] flex items-center justify-center">
-          {isTurn && (
-            <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 42 42">
-              <circle
-                cx="21" cy="21" r="19"
-                fill="none"
-                stroke="rgba(251,191,36,0.25)"
-                strokeWidth="2.5"
-              />
-              <circle
-                cx="21" cy="21" r="19"
-                fill="none"
-                stroke="#F59E0B"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeDasharray={`${2 * Math.PI * 19}`}
-                strokeDashoffset={`${(1 - turnTimeLeft / 45) * 2 * Math.PI * 19}`}
-                className="transition-all duration-1000 ease-linear"
-              />
-            </svg>
-          )}
-          <PlayerAvatar name={p.name} avatar={p.avatar} />
-          <div className="absolute -bottom-0.5 -right-0.5 w-[10px] h-[10px] rounded-full border-2 border-white" style={{ backgroundColor: color }} />
-        </div>
-        <div className="flex flex-col items-start leading-tight">
-          <span className="text-[13px] font-semibold text-[#2C2C2C] whitespace-nowrap">{p.name}</span>
-          <div className="flex items-center gap-1">
-            <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: color }} />
+      <div className="flex items-center gap-2">
+        <div className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? 'ring-2 ring-amber-400/60' : ''}`}>
+          <div className="relative w-[42px] h-[42px] flex items-center justify-center">
+            {isTurn && (
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 42 42">
+                <circle
+                  cx="21" cy="21" r="19"
+                  fill="none"
+                  stroke="rgba(251,191,36,0.25)"
+                  strokeWidth="2.5"
+                />
+                <circle
+                  cx="21" cy="21" r="19"
+                  fill="none"
+                  stroke="#F59E0B"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 19}`}
+                  strokeDashoffset={`${(1 - turnTimeLeft / 45) * 2 * Math.PI * 19}`}
+                  className="transition-all duration-1000 ease-linear"
+                />
+              </svg>
+            )}
+            <PlayerAvatar name={p.name} avatar={p.avatar} />
+            <div className="absolute -bottom-0.5 -right-0.5 w-[10px] h-[10px] rounded-full border-2 border-white" style={{ backgroundColor: color }} />
+          </div>
+          <div className="flex flex-col items-start leading-tight">
+            <span className="text-[13px] font-semibold text-[#2C2C2C] whitespace-nowrap">{p.name}</span>
+            <div className="flex items-center gap-1">
+              <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: color }} />
+            </div>
           </div>
         </div>
+        {visibleRoll?.playerId === p.id && (
+          <Dice
+            key={`${p.id}-${gameState.last_roll?.roll_id ?? 'legacy'}`}
+            value={isTurn && gameState.dice_rolled && gameState.dice !== null ? gameState.dice : visibleRoll.value}
+            isRolling={rollingRollId === (gameState.last_roll?.roll_id ?? 0) || (isTurn && isSpinning)}
+            rollId={gameState.last_roll?.roll_id}
+          />
+        )}
       </div>
     );
   };
@@ -531,7 +564,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                         zIndex: 20 + pieceIndexInSameCoord,
                         pointerEvents: 'auto',
                       }}
-                      onClick={() => isMovable && onMovePiece(pieceIdx)}
+                       onClick={() => isMovable && onMovePiece(pieceIdx)}
                       className={`rounded-full bg-white shadow-[0_3px_8px_rgba(0,0,0,0.25)] flex items-center justify-center ${
                         isMovable ? 'cursor-pointer animate-bounce ring-2 ring-amber-400 ring-offset-2 z-30 scale-105' : ''
                       }`}
@@ -549,31 +582,28 @@ export const GameBoard: React.FC<GameBoardProps> = ({
             </div>
           </div>
 
-          {/* Bottom row: players + main dice (Fixed Centering with 3-column Grid) */}
+          {/* Bottom row: players + roll control (Fixed Centering with 3-column Grid) */}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full max-w-[480px] px-1 pb-1 min-h-[60px]">
             <div className="flex justify-start">{blPlayer >= 0 && renderPlayerPanel(blPlayer)}</div>
 
-            {/* Large main dice */}
+            {/* Roll control */}
             <div className="flex justify-center relative">
               {isMyTurn && !gameState.dice_rolled && !isSpinning && (
-                <div className="absolute inset-[-6px] rounded-[28px] bg-amber-400/20 animate-pulse" />
+                <div className="absolute inset-[-4px] rounded-full bg-amber-400/20 animate-pulse" />
               )}
               {isMyTurn ? (
                 <button
                   onClick={handleDiceClick}
                   disabled={!isMyTurn || isSpinning || gameState.dice_rolled}
-                  className={`w-[76px] h-[76px] bg-white rounded-[24px] shadow-[0_8px_24px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.8)] border-2 border-[#E6D5B8] flex items-center justify-center ${
+                  aria-label="Roll dice"
+                  className={`relative min-w-[104px] h-[48px] px-6 rounded-full bg-[#C17D3C] text-white font-bold text-[15px] shadow-[0_8px_18px_rgba(193,125,60,0.28)] border-2 border-[#D99A5C] flex items-center justify-center ${
                     isMyTurn && !gameState.dice_rolled && !isSpinning
-                      ? 'active:scale-95 transition-transform cursor-pointer'
-                      : ''
+                      ? 'hover:bg-[#AE6C31] active:scale-95 transition-transform cursor-pointer'
+                      : 'opacity-60 cursor-not-allowed'
                   }`}
                 >
-                  <Dice value={gameState.dice} isRolling={isSpinning} className="scale-[1.4]" />
+                  {isSpinning ? 'Rolling...' : 'Roll'}
                 </button>
-              ) : gameState.dice !== null ? (
-                <div className="w-[56px] h-[56px] bg-white/70 rounded-[18px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-[#E6D5B8]/50 flex items-center justify-center opacity-70">
-                  <Dice value={gameState.dice} isRolling={false} className="scale-[1.0]" />
-                </div>
               ) : (
                 <div className="w-[56px] h-[56px]" />
               )}

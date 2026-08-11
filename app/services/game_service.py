@@ -46,6 +46,7 @@ class GameService:
             "dice": None,
             "dice_rolled": False,
             "consecutive_sixes": 0,
+            "roll_sequence": 0,
             "pieces": pieces,
             "status": "playing",
             "winner_id": None,
@@ -81,12 +82,13 @@ class GameService:
         if state["dice_rolled"]:
             raise ValueError("Dice already rolled")
 
-        # تولید عدد تاس
         rolled = random.randint(1, 6)
+        state["roll_sequence"] = state.get("roll_sequence", 0) + 1
         state["dice"] = rolled
         state["last_roll"] = {
             "player_id": player_id,
-            "value": rolled
+            "value": rolled,
+            "roll_id": state["roll_sequence"],
         }
         state["dice_rolled"] = True
 
@@ -126,11 +128,11 @@ class GameService:
 
         # ۱. ذخیره و ارسال وضعیت فعلی (برای نمایش عدد تاس به همه بازیکنان)
         await GameService.save_game(room_id, state)
-        if room_manager and hasattr(room_manager, 'broadcast_to_room'):
-            await room_manager.broadcast_to_room(room_id, {"type": "sync_state", "game": state})
+        if room_manager:
+            await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
         
-        # ۲. مکث برای پخش انیمیشن تاس در فرانت‌اند
-        await asyncio.sleep(1.5)
+        # ۲. مکث برای نمایش نتیجه تاس پیش از تغییر نوبت
+        await asyncio.sleep(2)
         
         # ۳. تغییر نوبت و ریست کردن وضعیت تاس
         state = GameService._rotate_turn(state)
@@ -140,7 +142,11 @@ class GameService:
         return state
 
     @staticmethod
-    async def move_piece(room_id: str, player_id: str, piece_index: int) -> dict:
+    async def move_piece(
+        room_id: str,
+        player_id: str,
+        piece_index: int,
+    ) -> dict:
         state = await GameService.get_game(room_id)
         if not state or state["status"] == "finished":
             raise ValueError("Game not active")
@@ -159,6 +165,8 @@ class GameService:
             raise ValueError("Invalid piece index")
 
         dice = state["dice"]
+        if dice is None:
+            raise ValueError("Dice result is unavailable")
         player_pieces = state["pieces"][player_id]
         current_pos = player_pieces[piece_index]
 

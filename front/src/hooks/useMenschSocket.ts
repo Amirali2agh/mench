@@ -165,7 +165,8 @@ export function useMenschSocket() {
       // The server incrementally builds game state as players join.
       connectToRoom(directRoomId, externalPlayerId, externalPlayerName || 'بازیکن');
     }
-  }, []); // Run once on mount
+    return disconnectAll;
+  }, [connectToRoom, directRoomId, directPlayerNum, externalPlayerId, externalPlayerName, disconnectAll]);
 
   const joinQueue = useCallback((name: string, avatar: string, playerCount: number, piecesCount: number) => {
     setPlayerName(name);

@@ -27,12 +27,16 @@ class RoomManager:
         # Reconnection check: Cancel the active 60-second forfeit timer if it exists
         self._cancel_disconnect_task(room_id, player_id)
 
-    def disconnect(self, room_id: str, player_id: str) -> None:
+    def disconnect(self, room_id: str, player_id: str, websocket: WebSocket | None = None) -> None:
         """
         Removes a player's WebSocket connection from the active room dictionary.
         Does NOT end the game; the 60-second forfeit timer must be started separately.
         """
-        if room_id in self.rooms and player_id in self.rooms[room_id]:
+        if (
+            room_id in self.rooms
+            and player_id in self.rooms[room_id]
+            and (websocket is None or self.rooms[room_id][player_id] is websocket)
+        ):
             del self.rooms[room_id][player_id]
             if not self.rooms[room_id]:
                 del self.rooms[room_id]
@@ -50,7 +54,7 @@ class RoomManager:
 
         # Schedule the asynchronous forfeit timer task
         task = asyncio.create_task(self._forfeit_timer(room_id, player_id, forfeit_callback))
-        self.disconnect_tasks[room_id][player_id] = task
+        self.disconnect_tasks.setdefault(room_id, {})[player_id] = task
 
     async def broadcast(self, room_id: str, message: dict) -> None:
         """

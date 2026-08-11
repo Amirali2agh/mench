@@ -5,12 +5,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* انیمیشن چرخشی سه‌بعدی برای تاس */
-@keyframes spin3D {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+/* Dice presentation and continuous face-to-face rotation adapted from takhte-porteghal. */
+.dice-perspective {
+  perspective: 600px;
+  transform-style: preserve-3d;
+}
+
+.dice-cube {
+  width: 28px;
+  height: 28px;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+@keyframes dice-roll {
+  from {
+    transform: rotateX(0deg) rotateY(0deg);
   }
-  100% {
-    transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg);
+  to {
+    transform: rotateX(calc(var(--dice-target-x) + 1080deg)) rotateY(calc(var(--dice-target-y) + 1080deg));
   }
 }
+
+.dice-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: #fcfbf7;
+  border: 1px solid #dcd9cd;
+  border-radius: 5px;
+  backface-visibility: hidden;
+  box-shadow: inset -1px -1px 3px rgba(0, 0, 0, 0.1), inset 1px 1px 3px rgba(255, 255, 255, 0.8);
+}
+
+.dice-face-front { transform: translateZ(14px); }
+.dice-face-back { transform: rotateY(180deg) translateZ(14px); }
+.dice-face-right { transform: rotateY(90deg) translateZ(14px); }
+.dice-face-left { transform: rotateY(-90deg) translateZ(14px); }
+.dice-face-top { transform: rotateX(90deg) translateZ(14px); }
+.dice-face-bottom { transform: rotateX(-90deg) translateZ(14px); }

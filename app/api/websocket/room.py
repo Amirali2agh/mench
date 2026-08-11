@@ -228,10 +228,10 @@ async def websocket_room_endpoint(
         await handle_gameplay_loop(websocket, room_id, playerId, playerName)
 
     except WebSocketDisconnect:
-        room_manager.disconnect(room_id, playerId)
+        room_manager.disconnect(room_id, playerId, websocket)
         room_manager.start_disconnect_timer(room_id, playerId, forfeit_active_player)
     except Exception:
-        room_manager.disconnect(room_id, playerId)
+        room_manager.disconnect(room_id, playerId, websocket)
         room_manager.start_disconnect_timer(room_id, playerId, forfeit_active_player)
 
 
@@ -316,8 +316,8 @@ async def websocket_game_endpoint(
         await handle_gameplay_loop(websocket, room_id, player_id, player_name)
 
     except WebSocketDisconnect:
-        room_manager.disconnect(room_id, player_id)
+        room_manager.disconnect(room_id, player_id, websocket)
         room_manager.start_disconnect_timer(room_id, player_id, forfeit_active_player)
     except Exception:
-        room_manager.disconnect(room_id, player_id)
+        room_manager.disconnect(room_id, player_id, websocket)
         room_manager.start_disconnect_timer(room_id, player_id, forfeit_active_player)
