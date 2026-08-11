@@ -33,7 +33,6 @@ export interface ChatMessage {
 export function useMenschSocket() {
   const queryParams = getQueryParams();
   const directRoomId = queryParams.roomId || null;
-  const directPlayerNum = queryParams.playerNum ? parseInt(queryParams.playerNum) : null;
   const externalPlayerId = queryParams.playerId || '';
   const externalPlayerName = queryParams.playerName || '';
   const externalPlayerAvatar = queryParams.playerAvatar || '';
@@ -160,13 +159,13 @@ export function useMenschSocket() {
   }, [wsBaseUrl, disconnectAll, clearDiceTimeout]);
 
   useEffect(() => {
-    if (directRoomId && directPlayerNum && externalPlayerId) {
+    if (directRoomId && externalPlayerId) {
       // Connect directly to the existing room WebSocket with player metadata.
       // The server incrementally builds game state as players join.
       connectToRoom(directRoomId, externalPlayerId, externalPlayerName || 'بازیکن');
     }
     return disconnectAll;
-  }, [connectToRoom, directRoomId, directPlayerNum, externalPlayerId, externalPlayerName, disconnectAll]);
+  }, [connectToRoom, directRoomId, externalPlayerId, externalPlayerName, disconnectAll]);
 
   const joinQueue = useCallback((name: string, avatar: string, playerCount: number, piecesCount: number) => {
     setPlayerName(name);
