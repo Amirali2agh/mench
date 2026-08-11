@@ -93,18 +93,15 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   const localDice = gameState.dice;
 
   const getVisualIdx = (backendIdx: number) => {
-    // NOTE: 4-player games render through the separate GameBoard4P component,
-    // so this board only ever handles 2- and 3-player matches.
     if (player_count === 2) {
       if (backendIdx === 0) return 0;
       if (backendIdx === 1) return 1;
     }
-    if (player_count === 3) {
-      // Three-player matches use the first three clockwise color slots:
-      // red, yellow, blue.
+    if (player_count === 4) {
       if (backendIdx === 0) return 0;
-      if (backendIdx === 1) return 3;
-      if (backendIdx === 2) return 1;
+      if (backendIdx === 1) return 1;
+      if (backendIdx === 2) return 3;
+      if (backendIdx === 3) return 2;
     }
     return backendIdx;
   };
@@ -314,7 +311,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
         isPlayerActive ? 'border-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.4)]' : 'border-white/20'
       } ${!isOwned ? 'opacity-30 grayscale' : ''} flex items-center justify-center relative shadow-[inset_0_4px_10px_rgba(0,0,0,0.15)] transition-all duration-300`}>
         <div className="grid grid-cols-2 grid-rows-2 gap-[clamp(3px,0.5vmin,8px)] p-[clamp(4px,0.8vmin,12px)] w-full h-full">
-          {Array.from({ length: pieces_count || 4 }).map((_, idx) => {
+          {Array.from({ length: 4 }).map((_, idx) => {
             const slotTaken = ownerIdx >= 0 && players[ownerIdx] && pieces[players[ownerIdx].id]?.[idx] === -1;
             const isMovablePiece = ownerIdx === localPlayerIdx && slotTaken && isMyTurn && localDice === 6 && gameState.dice_rolled;
             return (
@@ -352,7 +349,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
     const isTurn = current_turn === playerIdx;
 
     return (
-      <div className={`flex items-center gap-2 ${pos === 'tr' || pos === 'br' ? 'flex-row-reverse' : ''}`}>
+      <div className="flex items-center gap-2">
         <div className={`flex items-center gap-2 bg-white/90 backdrop-blur-sm rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.06)] px-2 py-1 ${isTurn ? 'ring-2 ring-amber-400/60' : ''}`}>
           <div className="relative w-[42px] h-[42px] flex items-center justify-center">
             {isTurn && (

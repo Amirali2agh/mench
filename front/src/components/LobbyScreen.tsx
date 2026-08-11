@@ -26,8 +26,8 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
   // Local state for the player's name input (supports Persian typing seamlessly)
   const [name, setName] = useState<string>('');
   
-  // Game size configuration (2, 3, or 4 players)
-  const [playerCount, setPlayerCount] = useState<2 | 3 | 4>(2);
+  // Game size configuration (2 or 4 players)
+  const [playerCount, setPlayerCount] = useState<2 | 4>(2);
   
   // Piece count per player (2, 3, or 4 pieces)
   const [piecesCount, setPiecesCount] = useState<2 | 3 | 4>(4);
@@ -82,18 +82,18 @@ export const LobbyScreen: React.FC<LobbyScreenProps> = ({ onJoinQueue, isConnect
           />
         </div>
 
-        {/* Player Count Selection (2, 3, or 4) */}
+        {/* Player Count Selection (2 or 4) */}
         <div className="mb-6">
           <label className="block text-sm font-semibold text-slate-300 mb-2">
             تعداد بازیکنان
           </label>
           <div className="grid grid-cols-2 gap-3">
-            {[2, 3, 4].map((count) => (
+            {[2, 4].map((count) => (
               <button
                 key={count}
                 type="button"
                 disabled={isConnecting}
-                onClick={() => setPlayerCount(count as 2 | 3 | 4)}
+                onClick={() => setPlayerCount(count as 2 | 4)}
                 className={`py-3 rounded-xl font-medium border transition-all duration-200 ${
                   playerCount === count
                     ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-600/30 scale-[1.02]'

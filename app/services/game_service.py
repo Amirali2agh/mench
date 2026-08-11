@@ -245,23 +245,10 @@ class GameService:
 
     @staticmethod
     def _rotate_turn(state: dict) -> dict:
-        player_count = state.get("player_count", len(state["players"]))
-        if state["players"]:
-            # The 4-player board (GameBoard4P) seats players 1:1 around the
-            # board: 0 = red (bottom-left), 1 = blue (bottom-right), next to
-            # red, 2 = green (top-right), 3 = yellow (top-left). Turns rotate
-            # clockwise so neighbours alternate, never diagonally.
-            turn_order = {
-                3: [0, 1, 2],
-                4: [0, 1, 2, 3],
-            }.get(player_count, list(range(len(state["players"]))))
-            current_idx = state["current_turn"]
-            if current_idx in turn_order:
-                order_idx = turn_order.index(current_idx)
-                state["current_turn"] = turn_order[(order_idx + 1) % len(turn_order)]
-            else:
-                state["current_turn"] = turn_order[0]
-
+        joined_count = len(state["players"])
+        if joined_count > 0:
+            state["current_turn"] = (state["current_turn"] + 1) % joined_count
+        
         state["dice_rolled"] = False
         state["consecutive_sixes"] = 0
         return state
