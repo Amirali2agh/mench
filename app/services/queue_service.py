@@ -49,6 +49,7 @@ class QueueService:
                 # Store the pieces count configured for this room in Redis
                 # This will be fetched when initializing the game in the room websocket
                 await redis_client.set(f"room:{room_id}:pieces_count", pieces_count, ex=3600)
+                await redis_client.set(f"room:{room_id}:player_count", target_players, ex=3600)
                 
                 for pid in matched_ids:
                     # Map player to this room ID
@@ -60,6 +61,13 @@ class QueueService:
                         players_with_meta.append(json.loads(p_meta))
                     else:
                         players_with_meta.append({"id": pid, "name": f"Player {pid}", "avatar": ""})
+
+                # Keep matchmaking order independent of WebSocket connection order.
+                await redis_client.set(
+                    f"room:{room_id}:players",
+                    json.dumps(players_with_meta),
+                    ex=3600,
+                )
                 
                 return {
                     "room_id": room_id,

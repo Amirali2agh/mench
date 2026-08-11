@@ -8,6 +8,7 @@ import { useMenschSocket } from './hooks/useMenschSocket';
 import { LobbyScreen } from './components/LobbyScreen';
 import { QueueScreen } from './components/QueueScreen';
 import { GameBoard } from './components/GameBoard';
+import { GameBoard4P } from './components/GameBoard4P';
 import { DisconnectOverlay } from './components/DisconnectOverlay';
 import { GameOverModal } from './components/GameOverModal';
 import { OwnConnectionOverlay } from './components/OwnConnectionOverlay';
@@ -44,10 +45,13 @@ export function App() {
       } = useMenschSocket();
 
   const renderGameContent = () => {
-    // If we have an active game state, render the board
+    // If we have an active game state, render the board.
+    // 4-player games use a completely separate board; everything else uses
+    // the regular board (2 and 3 players).
     if (gameState) {
+      const Board = gameState.player_count === 4 ? GameBoard4P : GameBoard;
       return (
-        <GameBoard
+        <Board
           gameState={gameState}
           localPlayerId={playerId}
           onRollDice={rollDice}

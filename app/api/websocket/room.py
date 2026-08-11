@@ -196,16 +196,18 @@ async def websocket_room_endpoint(
             raw_pieces_count = await redis_client.get(f"room:{room_id}:pieces_count")
             pieces_count = int(raw_pieces_count) if raw_pieces_count else 4
 
-            # Fetch the target player capacity (e.g. 2 or 4) set by matchmaking queue
+            # Fetch the target player capacity (e.g. 2, 3, or 4) set by matchmaking queue
             raw_player_count = await redis_client.get(f"room:{room_id}:player_count")
             player_count = int(raw_player_count) if raw_player_count else 2
 
-            # Fetch player names/metadata dynamically to propagate back in sync_state
-            player_meta = await redis_client.get(f"player:{playerId}:meta")
-            meta_dict = json.loads(player_meta) if player_meta else {"id": playerId, "name": playerName, "avatar": ""}
-
-            # Initialize room state with the correct fixed room capacity
-            initial_players = [meta_dict]
+            # Initialize players in matchmaking order, not connection arrival order.
+            matched_players = await redis_client.get(f"room:{room_id}:players")
+            if matched_players:
+                initial_players = json.loads(matched_players)
+            else:
+                player_meta = await redis_client.get(f"player:{playerId}:meta")
+                meta_dict = json.loads(player_meta) if player_meta else {"id": playerId, "name": playerName, "avatar": ""}
+                initial_players = [meta_dict]
             state = await GameService.create_game(room_id, initial_players, pieces_count, player_count)
         else:
             # If state already exists but connecting player is missing from players list

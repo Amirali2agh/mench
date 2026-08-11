@@ -37,7 +37,7 @@ export interface PiecesState {
  */
 export interface GameState {
   room_id: string;          // Unique room UUID where the match takes place
-  player_count: number;     // Total players required for this match (2 or 4)
+  player_count: number;     // Total players required for this match (2, 3, or 4)
   pieces_count: number;     // Number of pieces each player starts with (2, 3, or 4)
   players: Player[];        // Array of connected players, sorted in turn order
   current_turn: number;     // Index of the active player in the "players" array (0 to player_count - 1)
