@@ -58,3 +58,50 @@ def test_center_position_is_not_a_valid_follow_up_move():
     state = {"pieces": {"player": [44, 44, -1, -1]}}
 
     assert not GameService._player_has_valid_moves(state, "player", 2)
+
+
+def test_landing_on_an_opponent_piece_sends_it_back_to_base():
+    state = {
+        "players": [{"id": "red"}, {"id": "blue"}],
+        "pieces": {
+            "red": [10, -1, -1, -1],
+            "blue": [0, -1, -1, -1],
+        },
+    }
+
+    captured = GameService._handle_captures(state, "red", 10)
+
+    assert captured
+    assert state["pieces"]["blue"][0] == -1
+
+
+def test_landing_on_an_opponent_home_or_base_piece_does_not_capture_it():
+    state = {
+        "players": [{"id": "red"}, {"id": "blue"}],
+        "pieces": {
+            "red": [40, -1, -1, -1],
+            "blue": [-1, 40, -1, -1],
+        },
+    }
+
+    captured = GameService._handle_captures(state, "red", 40)
+
+    assert not captured
+    assert state["pieces"]["blue"][1] == 40
+
+
+def test_landing_can_capture_all_opponents_on_the_same_track_cell():
+    state = {
+        "players": [{"id": "red"}, {"id": "blue"}, {"id": "green"}],
+        "pieces": {
+            "red": [10, -1, -1, -1],
+            "blue": [0, -1, -1, -1],
+            "green": [30, -1, -1, -1],
+        },
+    }
+
+    captured = GameService._handle_captures(state, "red", 10)
+
+    assert captured
+    assert state["pieces"]["blue"][0] == -1
+    assert state["pieces"]["green"][0] == -1

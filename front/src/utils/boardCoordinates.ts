@@ -53,10 +53,6 @@ export const circularTrack: GridCoord[] = [
   { r: 0, c: 5 },
 ];
 
-// Safe cells (star positions) on the circular track
-// Shifted by +1 from indices >=4 to account for the inserted cell.
-export const safeTrackPositions = new Set([0, 9, 14, 19, 24, 29, 34, 39]);
-
 // Base yard piece positions for the reference layout:
 // TL=yellow(v3), TR=blue(v1), BL=red(v0), BR=green(v2)
 export const baseCoords: Record<number, GridCoord[]> = {
@@ -160,16 +156,3 @@ export function getArrowRotation(coord: GridCoord): string {
   if (r === 0 && c === 5) return "rotate-0";
   return "";
 }
-
-// Which player color index owns each star position for coloring the star
-// Shifted by +1 from indices >=4 to account for the inserted cell.
-export const starColorMap: Record<number, string> = {
-  0: "text-blue-500",
-  9: "text-green-500",
-  14: "text-green-500",
-  19: "text-red-500",
-  24: "text-red-500",
-  29: "text-yellow-500",
-  34: "text-yellow-500",
-  39: "text-blue-500",
-};

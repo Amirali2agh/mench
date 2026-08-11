@@ -6,6 +6,9 @@ from app.utils.redis_keys import RedisKeys
 
 HOME_START_POSITION = 40
 HOME_END_POSITION = 43
+# Relative positions are rendered from each player's colored starting cell.
+# This matches the visual board order: red, blue, green, yellow.
+TRACK_OFFSETS = (20, 30, 0, 10)
 
 class GameService:
     """
@@ -248,12 +251,11 @@ class GameService:
 
     @staticmethod
     def _handle_captures(state: dict, moving_player_id: str, relative_pos: int) -> bool:
-        player_count = state["player_count"]
         players = state["players"]
         player_ids = [p["id"] for p in players]
 
         moving_idx = player_ids.index(moving_player_id)
-        moving_offset = (40 // player_count) * moving_idx
+        moving_offset = TRACK_OFFSETS[moving_idx]
         moving_abs = (moving_offset + relative_pos) % 40
         
         captured_any = False
@@ -262,7 +264,7 @@ class GameService:
             if pid == moving_player_id:
                 continue
 
-            opponent_offset = (40 // player_count) * idx
+            opponent_offset = TRACK_OFFSETS[idx]
             opponent_pieces = state["pieces"][pid]
 
             for piece_idx, opp_rel_pos in enumerate(opponent_pieces):

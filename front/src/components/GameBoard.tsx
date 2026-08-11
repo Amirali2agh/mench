@@ -8,8 +8,6 @@ import {
   getGridCoordinates,
   getArrowRotation,
   GridCoord,
-  safeTrackPositions,
-  circularTrack,
 } from "../utils/boardCoordinates";
 import Dice from "./Dice";
 import type { ChatMessage } from "../hooks/useMenschSocket";
@@ -636,7 +634,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
 
                     let customBg = "bg-white";
                     let isHomeStretch = false;
-                    let isStarCell = false;
 
                     if (cIdx === 5 && rIdx >= 1 && rIdx <= 4) {
                       customBg = "bg-[#43AA8B]/30";
@@ -660,21 +657,6 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                     else if (rIdx === 10 && cIdx === 6)
                       customBg = "bg-[#F94144]";
 
-                    const cellOnTrack = (
-                      r: number,
-                      c: number,
-                    ): number | null => {
-                      for (let i = 0; i < 39; i++) {
-                        const t = circularTrack[i];
-                        if (t && t.r === r && t.c === c) return i;
-                      }
-                      return null;
-                    };
-                    const starIdx = cellOnTrack(rIdx, cIdx);
-                    if (starIdx !== null && safeTrackPositions.has(starIdx)) {
-                      isStarCell = true;
-                    }
-
                     const arrowRotation = getArrowRotation({
                       r: rIdx,
                       c: cIdx,
@@ -695,15 +677,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
                               : "border-white/40 shadow-inner"
                         } flex items-center justify-center relative transition-all duration-300 ${customBg} aspect-square p-[0.15vmin]`}
                       >
-                        {isStarCell ? (
-                          <svg
-                            className="w-3/5 h-3/5 text-amber-500 drop-shadow-sm"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                          </svg>
-                        ) : !isHomeStretch &&
+                        {!isHomeStretch &&
                           !customBg.startsWith("bg-[") &&
                           customBg === "bg-white" ? (
                           <svg
