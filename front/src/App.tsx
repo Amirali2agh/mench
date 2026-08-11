@@ -8,6 +8,7 @@ import { useMenschSocket } from './hooks/useMenschSocket';
 import { LobbyScreen } from './components/LobbyScreen';
 import { QueueScreen } from './components/QueueScreen';
 import { GameBoard } from './components/GameBoard';
+import { DevControl } from './components/DevControl';
 import { DisconnectOverlay } from './components/DisconnectOverlay';
 import { GameOverModal } from './components/GameOverModal';
 import { OwnConnectionOverlay } from './components/OwnConnectionOverlay';
@@ -44,6 +45,11 @@ export function App() {
       } = useMenschSocket();
 
   const renderGameContent = () => {
+    // Dev-only board helper page: ?dev=1&roomId=<room_id>
+    if (queryParams.dev === '1') {
+      return <DevControl />;
+    }
+
     // If we have an active game state, render the board
     if (gameState) {
       return (

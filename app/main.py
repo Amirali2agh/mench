@@ -5,6 +5,7 @@ from app.api.health import router as health_router
 from app.api.rooms import router as rooms_router
 from app.api.websocket.queue import router as queue_router
 from app.api.websocket.room import router as room_router
+from app.api.dev import router as dev_router
 app = FastAPI(
     title=settings.PROJECT_NAME,
     debug=settings.DEBUG
@@ -31,3 +32,4 @@ app.include_router(rooms_router)
 app.include_router(queue_router)
  # این خط را بالا اضافه کنید
 app.include_router(room_router) # این خط را پایین اضافه کنید
+app.include_router(dev_router)
