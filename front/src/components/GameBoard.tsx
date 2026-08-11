@@ -216,8 +216,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   useEffect(() => {
     if (
       isSpinning &&
-      gameState.dice !== null &&
-      gameState.last_roll?.player_id === localPlayerId
+      gameState.dice !== null
     ) {
       const timer = setTimeout(() => setIsSpinning(false), 1300);
       return () => clearTimeout(timer);
@@ -326,6 +325,7 @@ export const GameBoard: React.FC<GameBoardProps> = ({
   useEffect(() => {
     setTurnTimeLeft(TURN_TIMEOUT);
     hasActedRef.current = false;
+    setIsSpinning(false);
   }, [gameState?.current_turn, gameState?.status]);
 
   useEffect(() => {
