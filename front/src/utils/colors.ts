@@ -45,5 +45,17 @@ export const playerColors: Record<number, ColorTheme> = {
   }
 };
 
+// Hex colors per visual index, used for piece cores and accents.
+export const pieceHexColors: Record<number, string> = {
+  0: "#F94144", // قرمز
+  1: "#277DA1", // آبی
+  2: "#43AA8B", // سبز
+  3: "#F9C74F", // زرد
+};
+
+export function getPieceHexColor(vIdx: number): string {
+  return pieceHexColors[vIdx] || "#999";
+}
+
 // خروجی به صورت پیش‌فرض جهت هماهنگی با پروژه‌تان
 export default playerColors;

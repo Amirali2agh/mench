@@ -30,16 +30,23 @@ export function sendToParent(
 
 /**
  * Parse URL query parameters (supports ?key=value&key2=value2).
+ * Parsed once per page load; the SPA never rewrites location.search.
  */
+let cachedQueryParams: Record<string, string> | null = null;
 export function getQueryParams(): Record<string, string> {
+  if (cachedQueryParams) return cachedQueryParams;
   const params: Record<string, string> = {};
   if (typeof window === "undefined") return params;
   const search = window.location.search.substring(1);
-  if (!search) return params;
+  if (!search) {
+    cachedQueryParams = params;
+    return params;
+  }
   search.split("&").forEach((part) => {
     const [key, val] = part.split("=");
     if (key && val) params[decodeURIComponent(key)] = decodeURIComponent(val);
   });
+  cachedQueryParams = params;
   return params;
 }
 
