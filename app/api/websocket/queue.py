@@ -1,8 +1,35 @@
+import asyncio
+import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from app.managers.queue_manager import queue_manager
 from app.services.queue_service import QueueService
+from app.redis_client import redis_client
+from app.utils.redis_keys import RedisKeys
 
 router = APIRouter()
+
+
+async def _wait_for_match(websocket: WebSocket, player_id: str) -> None:
+    """Deliver match notifications from Redis even when workers differ."""
+    while True:
+        room_id = await redis_client.get(RedisKeys.player_room(player_id))
+        if room_id:
+            raw_meta = await redis_client.get(f"room:{room_id}:meta")
+            if raw_meta:
+                room_meta = json.loads(raw_meta)
+                players = [
+                    player
+                    for player in room_meta.get("players_meta", {}).values()
+                    if player.get("id")
+                ]
+                await websocket.send_json({
+                    "type": "match_found",
+                    "room_id": room_id,
+                    "players": players,
+                })
+                return
+        await asyncio.sleep(0.25)
+
 
 @router.websocket("/ws/queue")
 async def websocket_queue_endpoint(
@@ -10,46 +37,53 @@ async def websocket_queue_endpoint(
     playerId: str = Query(...),
     playerName: str = Query(...),
     playerAvatarUrl: str = Query(""),
-    playerCount: int = Query(2),        # Target players for matchmaking (2 or 4)
-    piecesCount: int = Query(4)        # Selected Mensch pieces to play with (2, 3, or 4)
+    playerCount: int = Query(2),
+    piecesCount: int = Query(4),
 ):
-    """
-    WebSocket endpoint for matchmaking. Connects players, registers their metadata,
-    and broadcasts "match_found" when a lobby of matched player and piece count is filled.
-    """
-    # Accept and register connection in the active connection pool
+    """Redis-backed matchmaking with worker-independent match delivery."""
     await queue_manager.connect(playerId, websocket)
-    
+    match_watch_task = None
+
     try:
-        # Add player to Redis queue and check for matches using both counts
         match_result = await QueueService.add_to_queue(
             player_id=playerId,
             player_name=playerName,
             avatar_url=playerAvatarUrl,
             target_players=playerCount,
-            pieces_count=piecesCount
+            pieces_count=piecesCount,
         )
-        
-        # If a match is found, broadcast it to all involved players
+
         if match_result:
             room_id = match_result["room_id"]
             players = match_result["players"]
-            
             for player in players:
-                pid = player["id"]
-                await queue_manager.send_match_found(pid, room_id, players)
-        
-        # Keep the connection alive while the player waits in the queue
+                await queue_manager.send_match_found(
+                    player["id"], room_id, players
+                )
+        else:
+            # The first player may be connected to a different worker from the
+            # player that completes the match. Redis polling closes that gap.
+            match_watch_task = asyncio.create_task(
+                _wait_for_match(websocket, playerId)
+            )
+
         while True:
-            # Listening for dummy/ping messages or simple client disconnect
             await websocket.receive_text()
-            
+
     except WebSocketDisconnect:
-        # Cleanup when client disconnects gracefully
         queue_manager.disconnect(playerId)
-        await QueueService.remove_from_queue(playerId, playerCount, piecesCount)
-        
+        await QueueService.remove_from_queue(
+            playerId, playerCount, piecesCount
+        )
     except Exception:
-        # Catch-all to ensure proper cleanup on any socket or connection errors
         queue_manager.disconnect(playerId)
-        await QueueService.remove_from_queue(playerId, playerCount, piecesCount)
+        await QueueService.remove_from_queue(
+            playerId, playerCount, piecesCount
+        )
+    finally:
+        if match_watch_task:
+            match_watch_task.cancel()
+            try:
+                await match_watch_task
+            except asyncio.CancelledError:
+                pass
