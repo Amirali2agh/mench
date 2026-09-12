@@ -54,12 +54,14 @@ async def websocket_queue_endpoint(
         )
 
         if match_result:
-            room_id = match_result["room_id"]
-            players = match_result["players"]
-            for player in players:
-                await queue_manager.send_match_found(
-                    player["id"], room_id, players
-                )
+            # This connection created the match. Other matched players keep a
+            # Redis watcher, so we only need to notify the current connection
+            # directly. This avoids duplicate match_found messages.
+            await queue_manager.send_match_found(
+                playerId,
+                match_result["room_id"],
+                match_result["players"],
+            )
         else:
             # The first player may be connected to a different worker from the
             # player that completes the match. Redis polling closes that gap.
