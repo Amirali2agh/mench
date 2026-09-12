@@ -17,13 +17,11 @@ async def forfeit_active_player(room_id: str, player_id: str) -> None:
     state = await GameService.get_game(room_id)
     if state and state["status"] == "playing":
         state["status"] = "finished"
-        # Find an active opponent to declare as the winner
         opponents = [p for p in state["players"] if p["id"] != player_id]
         if opponents:
             state["winner_id"] = opponents[0]["id"]
 
         await GameService.save_game(room_id, state)
-        # Broadcast the forfeit state update to the remaining players in the room
         await room_manager.broadcast(room_id, {
             "type": "sync_state",
             "game": state
@@ -75,63 +73,37 @@ async def handle_gameplay_loop(
             message = json.loads(data)
             action = message.get("action")
 
-            # Action 1: Rolling the dice
             if action == "roll_dice":
                 state = await GameService.roll_dice(room_id, player_id)
-                await room_manager.broadcast(room_id, {
-                    "type": "sync_state",
-                    "game": state
-                })
+                await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
 
-            # Action 2: Moving a specific piece
             elif action == "move_piece":
                 piece_index = message.get("piece_index")
                 if piece_index is None:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "piece_index is required for move_piece action"
-                    })
+                    await websocket.send_json({"type": "error", "message": "piece_index is required for move_piece action"})
                     continue
-
                 try:
                     parsed_index = int(piece_index)
                 except (ValueError, TypeError):
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Invalid piece_index format. Must be an integer."
-                    })
+                    await websocket.send_json({"type": "error", "message": "Invalid piece_index format. Must be an integer."})
                     continue
 
                 state = await GameService.move_piece(room_id, player_id, parsed_index)
-                await room_manager.broadcast(room_id, {
-                    "type": "sync_state",
-                    "game": state
-                })
-
-                # Report winner to porteghal if game finished
+                await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
                 await report_game_winner(room_id, state)
 
-            # Action 3: Reset pieces for next round but keep session/players intact
             elif action == "next_round":
                 state = await GameService.get_game(room_id)
                 if state:
                     state = await GameService.create_game(room_id, state["players"], state["pieces_count"], state["player_count"])
-                    await room_manager.broadcast(room_id, {
-                        "type": "sync_state",
-                        "game": state
-                    })
+                    await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
 
-            # Action 4: Completely restart and clear the game
             elif action == "restart_game":
                 state = await GameService.get_game(room_id)
                 if state:
                     state = await GameService.create_game(room_id, state["players"], state["pieces_count"], state["player_count"])
-                    await room_manager.broadcast(room_id, {
-                        "type": "sync_state",
-                        "game": state
-                    })
+                    await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
 
-            # Action 5: Chat message
             elif action == "chat":
                 chat_text = message.get("message", "").strip()
                 sender_name = message.get("playerName", player_name)
@@ -143,35 +115,20 @@ async def handle_gameplay_loop(
                         "message": chat_text,
                     })
 
-            # Action 6: Auto-pass turn on timeout
             elif action == "pass_turn":
                 state = await GameService.get_game(room_id)
                 if state and state["status"] == "playing":
                     state = GameService._rotate_turn(state)
                     await GameService.save_game(room_id, state)
-                    await room_manager.broadcast(room_id, {
-                        "type": "sync_state",
-                        "game": state
-                    })
+                    await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
 
         except json.JSONDecodeError:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Malformed JSON payload received"
-            })
+            await websocket.send_json({"type": "error", "message": "Malformed JSON payload received"})
         except ValueError as e:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
+            await websocket.send_json({"type": "error", "message": str(e)})
         except Exception as e:
-            await websocket.send_json({
-                "type": "error",
-                "message": f"An unexpected error occurred: {str(e)}"
-            })
+            await websocket.send_json({"type": "error", "message": f"An unexpected error occurred: {str(e)}"})
 
-
-# ─── Existing endpoint: matchmaking queue → room flow ───────────────────────
 
 @router.websocket("/ws/room/{room_id}")
 async def websocket_room_endpoint(
@@ -181,50 +138,72 @@ async def websocket_room_endpoint(
     playerName: str = Query(...)
 ):
     """
-    WebSocket endpoint for active Mensch game rooms. Handles real-time gameplay actions
-    including rolling, moving, next rounds, restarts, and disconnection timers.
-    Used by the matchmaking queue flow.
+    WebSocket endpoint for active Mensch game rooms.
+    The complete matchmaking roster is persisted in Redis so the first player
+    immediately receives a state containing every matched player.
     """
-    # Accept and register player connection in the target room
     await room_manager.connect(room_id, playerId, websocket)
 
     try:
-        # Load or initialize the Mensch game state
+        raw_room_meta = await redis_client.get(f"room:{room_id}:meta")
+        room_meta = json.loads(raw_room_meta) if raw_room_meta else {}
+        matched_players = [
+            player for player in room_meta.get("players_meta", {}).values()
+            if player.get("id")
+        ]
+
         state = await GameService.get_game(room_id)
         if not state:
-            # Fetch the dynamic pieces count selected during queue registration
             raw_pieces_count = await redis_client.get(f"room:{room_id}:pieces_count")
-            pieces_count = int(raw_pieces_count) if raw_pieces_count else 4
+            pieces_count = int(room_meta.get("pieces_count", raw_pieces_count or 4))
 
-            # Fetch the target player capacity (e.g. 2 or 4) set by matchmaking queue
             raw_player_count = await redis_client.get(f"room:{room_id}:player_count")
-            player_count = int(raw_player_count) if raw_player_count else 2
+            player_count = int(room_meta.get("player_count", raw_player_count or len(matched_players) or 2))
 
-            # Fetch player names/metadata dynamically to propagate back in sync_state
-            player_meta = await redis_client.get(f"player:{playerId}:meta")
-            meta_dict = json.loads(player_meta) if player_meta else {"id": playerId, "name": playerName, "avatar": ""}
-
-            # Initialize room state with the correct fixed room capacity
-            initial_players = [meta_dict]
-            state = await GameService.create_game(room_id, initial_players, pieces_count, player_count)
-        else:
-            # If state already exists but connecting player is missing from players list
-            player_ids = [p["id"] for p in state["players"]]
-            if playerId not in player_ids:
+            if not matched_players:
                 player_meta = await redis_client.get(f"player:{playerId}:meta")
-                meta_dict = json.loads(player_meta) if player_meta else {"id": playerId, "name": playerName, "avatar": ""}
+                matched_players = [
+                    json.loads(player_meta) if player_meta else {
+                        "id": playerId,
+                        "name": playerName,
+                        "avatar": "",
+                    }
+                ]
+
+            state = await GameService.create_game(
+                room_id,
+                matched_players,
+                pieces_count,
+                player_count,
+            )
+        else:
+            known_ids = {p["id"] for p in state.get("players", [])}
+            changed = False
+
+            for player in matched_players:
+                if player["id"] not in known_ids:
+                    state["players"].append(player)
+                    state.setdefault("pieces", {})[player["id"]] = [-1] * state.get("pieces_count", room_meta.get("pieces_count", 4))
+                    changed = True
+
+            if playerId not in known_ids and not any(p["id"] == playerId for p in matched_players):
+                player_meta = await redis_client.get(f"player:{playerId}:meta")
+                meta_dict = json.loads(player_meta) if player_meta else {
+                    "id": playerId,
+                    "name": playerName,
+                    "avatar": "",
+                }
                 state["players"].append(meta_dict)
-                # Initialize pieces for this late joiner matching the room piece count
-                state["pieces"][playerId] = [-1] * state["pieces_count"]
+                state.setdefault("pieces", {})[playerId] = [-1] * state.get("pieces_count", 4)
+                changed = True
+
+            if room_meta.get("player_count"):
+                state["player_count"] = int(room_meta["player_count"])
+
+            if changed:
                 await GameService.save_game(room_id, state)
 
-        # Broadcast the initial state sync to all connected players in the room
-        await room_manager.broadcast(room_id, {
-            "type": "sync_state",
-            "game": state
-        })
-
-        # Shared gameplay loop
+        await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
         await handle_gameplay_loop(websocket, room_id, playerId, playerName)
 
     except WebSocketDisconnect:
@@ -235,8 +214,6 @@ async def websocket_room_endpoint(
         room_manager.start_disconnect_timer(room_id, playerId, forfeit_active_player)
 
 
-# ─── New endpoint: porteghal direct room mode ────────────────────────────
-
 @router.websocket("/ws/game/{room_id}/{player_num}")
 async def websocket_game_endpoint(
     websocket: WebSocket,
@@ -245,15 +222,7 @@ async def websocket_game_endpoint(
 ):
     """
     Porteghal-compatible WebSocket endpoint.
-    Path format: /ws/game/{room_id}/{player_num}
-    player_num is "1" or "2".
-
-    - Looks up player metadata from the room (pre-populated by POST /api/rooms)
-    - Sends game_info message on connect (porteghal contract)
-    - Syncs game state
-    - Reuses the shared gameplay loop
     """
-    # Look up room meta
     meta_key = f"room:{room_id}:meta"
     raw = await redis_client.get(meta_key)
 
@@ -265,18 +234,15 @@ async def websocket_game_endpoint(
         player_name = player_meta.get("name", f"بازیکن {player_num}")
         room_has_meta = True
     else:
-        # No room meta — create fallback player data
         player_id = f"player_{player_num}"
         player_name = f"بازیکن {player_num}"
         players_meta = {}
         player_meta = {"id": player_id, "name": player_name, "avatar": ""}
         room_has_meta = False
 
-    # Accept and register connection
     await room_manager.connect(room_id, player_id, websocket)
 
     try:
-        # Send game_info message (porteghal contract — provides player names/avatars)
         if room_has_meta:
             await websocket.send_json({
                 "type": "game_info",
@@ -286,33 +252,31 @@ async def websocket_game_endpoint(
                 "coin_bet": room_meta.get("coin_bet", 0),
             })
 
-        # Sync or initialize game state
         state = await GameService.get_game(room_id)
         if state:
-            await room_manager.broadcast(room_id, {
-                "type": "sync_state",
-                "game": state,
-            })
+            await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
         else:
-            # Create game state if not pre-created
             pieces_count = 4
             player_count = 2
             if room_has_meta:
                 pieces_count = int(room_meta.get("pieces_count", 4))
                 player_count = int(room_meta.get("player_count", 2))
 
+            matched_players = [
+                player for player in players_meta.values()
+                if player.get("id")
+            ]
+            if not matched_players:
+                matched_players = [player_meta]
+
             state = await GameService.create_game(
                 room_id,
-                [player_meta],
+                matched_players,
                 pieces_count=pieces_count,
                 player_count=player_count,
             )
-            await room_manager.broadcast(room_id, {
-                "type": "sync_state",
-                "game": state,
-            })
+            await room_manager.broadcast(room_id, {"type": "sync_state", "game": state})
 
-        # Shared gameplay loop
         await handle_gameplay_loop(websocket, room_id, player_id, player_name)
 
     except WebSocketDisconnect:
