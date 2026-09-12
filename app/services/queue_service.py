@@ -15,7 +15,6 @@ class QueueService:
         Adds a player to the matchmaking queue and metadata store.
         If enough players are present, creates a room and returns the room details.
         """
-        # Store player metadata in Redis (expires after 1 hour to prevent clutter)
         player_meta_key = f"player:{player_id}:meta"
         meta_data = {
             "id": player_id,
@@ -24,15 +23,11 @@ class QueueService:
         }
         await redis_client.set(player_meta_key, json.dumps(meta_data), ex=3600)
 
-        # Retrieve the dynamic queue key using both player and piece counts
         queue_key = RedisKeys.matchmaking_queue(target_players, pieces_count)
-        
-        # Check if player is already in queue to avoid duplicates
         queue_players = await redis_client.lrange(queue_key, 0, -1)
         if player_id not in queue_players:
             await redis_client.rpush(queue_key, player_id)
 
-        # Check if we have enough players to match and create a game
         queue_length = await redis_client.llen(queue_key)
         if queue_length >= target_players:
             matched_ids = []
@@ -40,34 +35,42 @@ class QueueService:
                 pid = await redis_client.lpop(queue_key)
                 if pid:
                     matched_ids.append(pid)
-            
-            # If successfully popped enough players, create a room
+
             if len(matched_ids) == target_players:
                 room_id = str(uuid.uuid4())
                 players_with_meta = []
-                
-                # Store the pieces count configured for this room in Redis
-                # This will be fetched when initializing the game in the room websocket
+
                 await redis_client.set(f"room:{room_id}:pieces_count", pieces_count, ex=3600)
-                
-                for pid in matched_ids:
-                    # Map player to this room ID
-                    await redis_client.set(RedisKeys.player_room(pid), room_id)
-                    
-                    # Fetch metadata for the players
+                await redis_client.set(f"room:{room_id}:player_count", target_players, ex=3600)
+
+                players_meta = {}
+                for index, pid in enumerate(matched_ids, start=1):
+                    await redis_client.set(RedisKeys.player_room(pid), room_id, ex=7200)
                     p_meta = await redis_client.get(f"player:{pid}:meta")
-                    if p_meta:
-                        players_with_meta.append(json.loads(p_meta))
-                    else:
-                        players_with_meta.append({"id": pid, "name": f"Player {pid}", "avatar": ""})
-                
+                    player_meta = json.loads(p_meta) if p_meta else {"id": pid, "name": f"Player {pid}", "avatar": ""}
+                    players_with_meta.append(player_meta)
+                    players_meta[str(index)] = player_meta
+
+                await redis_client.set(
+                    f"room:{room_id}:meta",
+                    json.dumps({
+                        "room_id": room_id,
+                        "players": [p["id"] for p in players_with_meta],
+                        "players_meta": players_meta,
+                        "player_count": target_players,
+                        "pieces_count": pieces_count,
+                        "status": "playing",
+                        "coin_bet": 0,
+                    }),
+                    ex=7200,
+                )
+
                 return {
                     "room_id": room_id,
                     "players": players_with_meta,
                     "pieces_count": pieces_count
                 }
-            
-            # Recovery: if we popped but couldn't form the room, push them back
+
             for pid in matched_ids:
                 await redis_client.lpush(queue_key, pid)
 
